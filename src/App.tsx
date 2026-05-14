@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard"
 import Students from "./pages/Students"
 import Attendance from "./pages/Attendance"
 import AIScanner from "./pages/AIScanner"
+import Settings from "./pages/Settings"
 import Login from "./pages/Login"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
@@ -64,6 +65,17 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <AIScanner />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Settings />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 

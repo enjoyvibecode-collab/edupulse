@@ -4,16 +4,31 @@ import { useState, useEffect, useCallback } from "react"
 import { studentService } from "@/lib/studentService"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
+} from 'recharts'
 
 export default function Dashboard() {
   const [statsData, setStatsData] = useState<any>(null)
+  const [weeklyData, setWeeklyData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchStats = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true)
     try {
-      const data = await studentService.getDashboardStats()
-      setStatsData(data)
+      const [stats, weekly] = await Promise.all([
+        studentService.getDashboardStats(),
+        studentService.getWeeklyStats()
+      ])
+      setStatsData(stats)
+      setWeeklyData(weekly)
     } catch (error: any) {
       toast.error("Gagal memuat statistik: " + error.message)
     } finally {
@@ -97,8 +112,43 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] flex items-center justify-center bg-slate-50 border border-dashed rounded-lg text-muted-foreground">
-              Visualisasi Grafik di sini (Recharts)
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }}
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#64748b', fontSize: 12 }} 
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="hadir" 
+                    radius={[6, 6, 0, 0]} 
+                    barSize={32}
+                  >
+                    {weeklyData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={index === weeklyData.length - 1 ? '#2563eb' : '#94a3b8'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -108,22 +158,25 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
              <div className="space-y-6">
-                {[
-                  { name: "Kelas XII IPA 1", value: 100, color: "bg-emerald-500" },
-                  { name: "Kelas X IPS 2", value: 98, color: "bg-blue-500" },
-                  { name: "Kelas XI IPA 4", value: 95, color: "bg-indigo-500" },
-                  { name: "Kelas XII IPS 1", value: 92, color: "bg-purple-500" },
-                ].map((item) => (
-                  <div key={item.name} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-slate-700">{item.name}</span>
-                      <span className="font-mono text-slate-500">{item.value}%</span>
+                {(statsData?.bestClasses || []).map((item: any, index: number) => {
+                  const colors = ["bg-emerald-500", "bg-blue-500", "bg-indigo-500", "bg-purple-500"];
+                  const color = colors[index % colors.length];
+                  
+                  return (
+                    <div key={item.name} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700">{item.name}</span>
+                        <span className="font-mono text-slate-500">{item.value}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`} style={{ width: `${item.value}%` }} />
+                      </div>
                     </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.value}%` }} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+                {(!statsData?.bestClasses || statsData.bestClasses.length === 0) && (
+                  <p className="text-center text-xs text-slate-400 py-8">Belum ada data kehadiran kelas hari ini.</p>
+                )}
              </div>
           </CardContent>
         </Card>

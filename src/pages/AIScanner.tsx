@@ -14,13 +14,15 @@ import {
   Clock, 
   User,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Info
 } from "lucide-react"
 import { toast } from "sonner"
 import { studentService } from "@/lib/studentService"
-import { supabase } from "@/lib/supabase"
+import { supabase, withTimeout } from "@/lib/supabase"
 import { format } from "date-fns"
 import { id as localeId } from "date-fns/locale"
+import { calculateDistance, SCHOOL_ZONE, playSuccessSound, playErrorSound } from "@/lib/geoUtils"
 
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
 const MATCH_THRESHOLD = 0.55 // loosened from 0.45 for better recognition
@@ -32,10 +34,15 @@ export default function AIScanner() {
   const [studentsWithFaces, setStudentsWithFaces] = useState<any[]>([])
   const [matcher, setMatcher] = useState<faceapi.FaceMatcher | null>(null)
   
+  // Geolocation state
+  const [locationStatus, setLocationStatus] = useState<"checking" | "allowed" | "denied" | "error">("checking")
+  const [distanceFromSchool, setDistanceFromSchool] = useState<number | null>(null)
+  
   // Real-time recognition state
   const [recognitionStatus, setRecognitionStatus] = useState<"scanning" | "recognized" | "unknown" | "idle">("idle")
   const [lastRecognizedData, setLastRecognizedData] = useState<any>(null)
   const [cooldown, setCooldown] = useState(false)
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
   const [recentLogs, setRecentLogs] = useState<any[]>([])
 
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -49,6 +56,9 @@ export default function AIScanner() {
     async function init() {
       try {
         setLoading(true)
+        
+        // 0. Geolocation Check
+        await checkLocation()
         
         // Ensure AI Engine is ready
         try {
@@ -92,12 +102,15 @@ export default function AIScanner() {
         console.log(`Initialized ${studentsWithDescriptors.length} AI face profiles.`)
         setStudentsWithFaces(studentsWithDescriptors)
 
-        // Load AI Models
-        await Promise.all([
+        // Load AI Models with a pseudo-timeout mechanism
+        const modelPromise = Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ])
+
+        // Add an 18-second timeout for AI models (they can be large)
+        await withTimeout(modelPromise, 18000, 'AI Models Loading')
 
         // Create Matcher
         if (studentsWithDescriptors.length > 0) {
@@ -135,6 +148,45 @@ export default function AIScanner() {
       supabase.removeChannel(channel)
     }
   }, [])
+
+  const checkLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error("Browser Anda tidak mendukung geolokasi.")
+      setLocationStatus("error")
+      return
+    }
+
+    return new Promise<void>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            SCHOOL_ZONE.latitude,
+            SCHOOL_ZONE.longitude
+          )
+          
+          setDistanceFromSchool(Math.round(distance))
+          
+          if (distance <= SCHOOL_ZONE.radius) {
+            setLocationStatus("allowed")
+          } else {
+            setLocationStatus("denied")
+            toast.error(`Anda berada di luar area sekolah (${Math.round(distance)}m)`)
+          }
+          resolve()
+        },
+        (error) => {
+          console.error("Location error:", error)
+          setLocationStatus("error")
+          toast.error("Gagal mendapatkan lokasi. Pastikan GPS aktif.")
+          resolve()
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    })
+  }
 
   const fetchRecentLogs = async () => {
     try {
@@ -177,6 +229,14 @@ export default function AIScanner() {
   }, [modelsLoaded])
 
   const handleAutoAttendance = useCallback(async (studentId: string, distance: number) => {
+    if (locationStatus !== 'allowed') {
+      console.warn("Attendance blocked: Outside school zone")
+      return
+    }
+    
+    // Prevent immediate re-trigger during cooldown
+    if (cooldown) return;
+
     try {
       const confidence = 1 - distance
       await studentService.markAttendance({
@@ -184,11 +244,24 @@ export default function AIScanner() {
         status: 'arrival',
         confidence: Number(confidence.toFixed(2))
       })
+      
+      // Feedback signals
+      playSuccessSound()
+      setShowSuccessOverlay(true)
+      setCooldown(true)
+      
       toast.success("Presensi berhasil dicatat secara otomatis!")
+      
+      // Auto-clear overlay after 2.5 seconds
+      setTimeout(() => {
+        setShowSuccessOverlay(false)
+        setCooldown(false)
+      }, 3000)
     } catch (error: any) {
       console.error("Auto attendance error:", error)
+      playErrorSound()
     }
-  }, [])
+  }, [locationStatus, cooldown])
 
   // 3. Recognition Loop
   const runRecognition = useCallback(async () => {
@@ -232,7 +305,7 @@ export default function AIScanner() {
           })
           drawBox.draw(canvas)
 
-          if (matcher && studentsWithFaces.length > 0) {
+          if (matcher && studentsWithFaces.length > 0 && !cooldown) {
             const result = matcher.findBestMatch(detection.descriptor)
             
             if (result.label !== "unknown") {
@@ -243,7 +316,8 @@ export default function AIScanner() {
                 setLastRecognizedData(student)
 
                 const now = Date.now()
-                if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) {
+                // Extra guard against noise
+                if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 8000) {
                   return 
                 }
 
@@ -251,9 +325,6 @@ export default function AIScanner() {
                 
                 lastRecognizedIdRef.current = student.id
                 lastRecognizedTimeRef.current = now
-                
-                setCooldown(true)
-                setTimeout(() => setCooldown(false), 3000)
               }
             } else {
               setRecognitionStatus("unknown")
@@ -325,9 +396,51 @@ export default function AIScanner() {
                 <div className="absolute bottom-8 left-8 w-16 h-16 border-b-4 border-l-4 border-primary rounded-bl-2xl opacity-50" />
                 <div className="absolute bottom-8 right-8 w-16 h-16 border-b-4 border-r-4 border-primary rounded-br-2xl opacity-50" />
                 
-                {/* Scan Line */}
-                {recognitionStatus === 'scanning' && (
-                  <div className="absolute top-0 left-0 w-full h-[2px] bg-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.5)] animate-[scan_3s_ease-in-out_infinite]" />
+                {/* Face Guide Circle */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <div className={`w-[220px] h-[280px] border-4 border-dashed rounded-[100px] transition-all duration-300 ${
+                    cooldown ? 'border-primary/0' : 
+                    recognitionStatus === 'recognized' ? 'border-emerald-500 scale-105' : 
+                    recognitionStatus === 'unknown' ? 'border-rose-500' : 
+                    'border-white/30'
+                  }`}>
+                    {!cooldown && (
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                         <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
+                           Align Face Here
+                         </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Success Pop-up Overlay */}
+                {showSuccessOverlay && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-500/90 backdrop-blur-md z-40 animate-in fade-in zoom-in duration-300">
+                    <div className="bg-white rounded-full p-4 mb-6 shadow-2xl animate-bounce">
+                      <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+                    </div>
+                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Presensi Berhasil!</h2>
+                    <p className="text-emerald-100 font-bold uppercase tracking-widest text-sm text-center px-12">
+                      Selamat datang, <span className="text-white underline">{lastRecognizedData?.name}</span>.<br/>
+                      Silahkan siswa berikutnya bersiap.
+                    </p>
+                  </div>
+                )}
+
+                {/* Ready Message for Orderly Queue */}
+                {cooldown && !showSuccessOverlay && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm z-30">
+                    <div className="flex flex-col items-center gap-4 bg-slate-950/80 p-8 rounded-[2rem] border border-white/10 shadow-2xl">
+                       <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                       <div className="text-center">
+                         <h3 className="text-xl font-black text-white italic uppercase italic">Processing Next...</h3>
+                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 flex items-center justify-center gap-2">
+                           <Info size={12} className="text-primary" /> Siswa Berikutnya Mohon Menunggu
+                         </p>
+                       </div>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -344,11 +457,47 @@ export default function AIScanner() {
                   className="absolute top-0 left-0 w-full h-full" 
                 />
                 
-                {!stream && (
+                {!stream && locationStatus === 'allowed' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
                     <Button onClick={startVideo} className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest bg-primary text-white shadow-2xl shadow-primary/40">
                       <Camera className="mr-3" /> Start Terminal
                     </Button>
+                  </div>
+                )}
+
+                {locationStatus === 'denied' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-rose-950/90 backdrop-blur-xl z-30 p-8 text-center">
+                    <div className="w-20 h-20 bg-rose-500/20 rounded-full flex items-center justify-center mb-6 ring-4 ring-rose-500/20 animate-pulse">
+                      <ShieldAlert className="w-10 h-10 text-rose-500" />
+                    </div>
+                    <h2 className="text-2xl font-black text-white italic uppercase tracking-tight mb-2">Location Restricted</h2>
+                    <p className="text-rose-200 font-bold uppercase tracking-widest text-xs mb-6 leading-relaxed">
+                      Terminal ini hanya berfungsi di area sekolah.<br/>
+                      Jarak Anda saat ini: <span className="text-white bg-rose-500 px-2 py-0.5 rounded">{distanceFromSchool}m</span>
+                    </p>
+                    <Button onClick={checkLocation} variant="outline" className="border-rose-500/50 text-white hover:bg-rose-500 hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] h-11 px-8">
+                      Retry Location Check
+                    </Button>
+                  </div>
+                )}
+
+                {locationStatus === 'error' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-xl z-30 p-8 text-center">
+                    <AlertCircle className="w-12 h-12 text-amber-500 mb-4" />
+                    <h2 className="text-xl font-bold text-white uppercase italic tracking-tight mb-2">GPS Failure</h2>
+                    <p className="text-slate-400 font-medium text-xs mb-6">
+                      Gagal mendeteksi lokasi perangkat. Pastikan izin lokasi diberikan dan GPS aktif.
+                    </p>
+                    <Button onClick={checkLocation} className="rounded-xl font-bold uppercase tracking-widest text-[10px] h-11 px-8">
+                      Grant Access
+                    </Button>
+                  </div>
+                )}
+
+                {locationStatus === 'checking' && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-md z-30">
+                    <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                    <p className="text-xs font-black text-white uppercase tracking-[0.2em] animate-pulse">Verifying Location Integrity...</p>
                   </div>
                 )}
 

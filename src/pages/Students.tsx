@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useState, useEffect, useMemo } from "react"
+import * as XLSX from 'xlsx'
 import { 
   Table, 
   TableBody, 
@@ -22,6 +23,13 @@ import {
   Edit2, 
   Trash2,
   ExternalLink,
+  FileDown,
+  Upload,
+  Download,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  FileSpreadsheet,
   Sparkles
 } from "lucide-react"
 import { 
@@ -52,6 +60,8 @@ export default function Students() {
   
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isFaceModalOpen, setIsFaceModalOpen] = useState(false)
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
   const [selectedForFace, setSelectedForFace] = useState<Student | null>(null)
 
@@ -93,6 +103,69 @@ export default function Students() {
     setIsFormOpen(true)
   }
 
+  const downloadTemplate = () => {
+    const headers = [
+      ["NISN", "Nama Lengkap", "Kelas", "Nama Orang Tua", "No. WhatsApp", "Jenis Kelamin (L/P)"],
+      ["12345678", "Contoh Siswa", "7A", "Nama Ayah/Ibu", "081234567890", "L"]
+    ]
+    const worksheet = XLSX.utils.aoa_to_sheet(headers)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Siswa")
+    XLSX.writeFile(workbook, "Template_Data_Siswa.xlsx")
+    toast.success("Template berhasil diunduh")
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    try {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const ab = e.target?.result
+          const workbook = XLSX.read(ab, { type: 'array' })
+          const sheetName = workbook.SheetNames[0]
+          const sheet = workbook.Sheets[sheetName]
+          const data = XLSX.utils.sheet_to_json(sheet) as any[]
+
+          if (data.length === 0) {
+            toast.error("File excel kosong atau format tidak sesuai")
+            return
+          }
+
+          // Map data to student format
+          const studentsToCreate = data.map(row => ({
+            nisn: String(row["NISN"] || ""),
+            full_name: String(row["Nama Lengkap"] || ""),
+            class_name: String(row["Kelas"] || ""),
+            parent_name: String(row["Nama Orang Tua"] || ""),
+            parent_phone: String(row["No. WhatsApp"] || ""),
+            gender: String(row["Jenis Kelamin (L/P)"] || "L") === "P" ? "P" : "L"
+          }))
+
+          // Basic validation
+          const invalidRows = studentsToCreate.filter(s => !s.nisn || !s.full_name || !s.class_name)
+          if (invalidRows.length > 0) {
+            toast.error(`${invalidRows.length} baris data tidak lengkap. Mohon periksa kembali.`)
+            return
+          }
+
+          await studentService.bulkCreate(studentsToCreate)
+          toast.success(`${studentsToCreate.length} data siswa berhasil diimpor`)
+          setIsBulkImportOpen(false)
+          fetchStudents()
+        } catch (err: any) {
+          toast.error("Gagal memproses file: " + err.message)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const matchesSearch = s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -114,12 +187,21 @@ export default function Students() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-sans">Manajemen Siswa</h1>
           <p className="text-muted-foreground">Kelola data induk siswa, wali murid, dan dokumentasi foto.</p>
         </div>
-        <Button 
-          onClick={handleAdd}
-          className="w-full md:w-auto bg-primary text-white shadow-lg shadow-primary/20 hover:shadow-none transition-all h-11 font-bold rounded-xl"
-        >
-          <UserPlus className="mr-2 h-5 w-5" /> Tambah Siswa
-        </Button>
+        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <Button 
+            variant="outline"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="w-full md:w-auto border-primary/20 text-primary hover:bg-primary/5 transition-all h-11 font-bold rounded-xl"
+          >
+            <Upload className="mr-2 h-4 w-4" /> Import Excel
+          </Button>
+          <Button 
+            onClick={handleAdd}
+            className="w-full md:w-auto bg-primary text-white shadow-lg shadow-primary/20 hover:shadow-none transition-all h-11 font-bold rounded-xl"
+          >
+            <UserPlus className="mr-2 h-5 w-5" /> Tambah Siswa
+          </Button>
+        </div>
       </div>
 
       <Card className="border-none shadow-sm overflow-hidden rounded-2xl">
@@ -314,6 +396,87 @@ export default function Students() {
         }}
         onSuccess={fetchStudents}
       />
+
+      <Dialog open={isBulkImportOpen} onOpenChange={setIsBulkImportOpen}>
+        <DialogContent className="sm:max-w-[500px] border-none shadow-2xl p-0 overflow-hidden rounded-3xl">
+          <div className="bg-indigo-600 p-6 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <DialogHeader className="relative z-10">
+              <DialogTitle className="text-2xl font-black italic uppercase tracking-tight">Bulk Import Siswa</DialogTitle>
+              <DialogDescription className="text-indigo-100 font-medium opacity-80">
+                Tambah data siswa dalam jumlah besar menggunakan file Excel.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="p-8 bg-white space-y-6">
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
+                  <Download className="w-4 h-4 text-indigo-600" /> Tahap 1: Unduh Template
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium mb-4 leading-relaxed">
+                  Gunakan format kolom yang sudah kami sediakan agar data dapat terbaca oleh sistem dengan sempurna.
+                </p>
+                <Button 
+                  onClick={downloadTemplate}
+                  variant="outline" 
+                  className="w-full border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl text-xs h-10"
+                >
+                  Download Excel Template
+                </Button>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-2">
+                  <Upload className="w-4 h-4 text-emerald-600" /> Tahap 2: Unggah File
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium mb-4 leading-relaxed">
+                  Pastikan file berekstensi .xlsx atau .xls dan semua kolom wajib (NISN, Nama, Kelas) sudah terisi.
+                </p>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={importing}
+                  />
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center gap-2 bg-white group-hover:border-emerald-300 transition-colors">
+                    {importing ? (
+                      <>
+                        <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                        <span className="text-[10px] font-bold text-slate-400">MEMPROSES DATA...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="w-8 h-8 text-slate-300" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Klik atau seret file ke sini</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-[10px] font-bold text-amber-800 leading-tight">
+                Data dengan NISN yang sama akan ditolak secara otomatis oleh sistem keamanan database.
+              </p>
+            </div>
+            
+            <div className="pt-2">
+              <Button 
+                onClick={() => setIsBulkImportOpen(false)}
+                variant="ghost" 
+                className="w-full font-bold text-slate-500 hover:text-slate-700"
+              >
+                Batalkan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
