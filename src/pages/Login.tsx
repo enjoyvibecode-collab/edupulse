@@ -72,6 +72,7 @@ export default function Login() {
                 <Label htmlFor="email">Email</Label>
                 <Input 
                   id="email" 
+                  name="email"
                   type="email" 
                   autoComplete="email"
                   placeholder="admin@sekolah.id" 
@@ -89,6 +90,7 @@ export default function Login() {
                 </div>
                 <Input 
                   id="password" 
+                  name="password"
                   type="password" 
                   autoComplete="current-password"
                   className="h-11 bg-slate-50 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/20" 

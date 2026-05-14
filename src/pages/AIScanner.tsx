@@ -23,7 +23,7 @@ import { format } from "date-fns"
 import { id as localeId } from "date-fns/locale"
 
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
-const MATCH_THRESHOLD = 0.45 // Lower is more strict
+const MATCH_THRESHOLD = 0.55 // loosened from 0.45 for better recognition
 
 export default function AIScanner() {
   const [loading, setLoading] = useState(true)
@@ -50,17 +50,38 @@ export default function AIScanner() {
       try {
         setLoading(true)
         
+        // Ensure AI Engine is ready
+        try {
+          const tf = (faceapi as any).tf;
+          if (tf && typeof tf.setBackend === 'function') {
+            // Priority: WebGL (fast) -> CPU (stable fallback)
+            await tf.setBackend('webgl').catch(async () => {
+              console.warn("Scanner: WebGL failed, switching to CPU fallback");
+              return tf.setBackend('cpu');
+            });
+            
+            if (typeof tf.ready === 'function') {
+              await tf.ready();
+            }
+          }
+        } catch (e) {
+          console.warn("AI Backend engine initialization warning:", e);
+        }
+
         // Load Students first
         const students = await studentService.getAll()
+        console.log(`Fetched ${students.length} students from database.`)
+
         const studentsWithDescriptors = students.filter(s => s.face_descriptor).map(s => {
           try {
+            const descriptorArray = JSON.parse(s.face_descriptor as string)
             return {
               id: s.id,
               name: s.full_name,
               nisn: s.nisn,
               className: s.class_name,
               photo: s.photo_url,
-              descriptor: new Float32Array(JSON.parse(s.face_descriptor as string))
+              descriptor: new Float32Array(descriptorArray)
             }
           } catch (e) {
             console.error("Invalid descriptor for student:", s.id)
@@ -68,6 +89,7 @@ export default function AIScanner() {
           }
         }).filter(Boolean)
 
+        console.log(`Initialized ${studentsWithDescriptors.length} AI face profiles.`)
         setStudentsWithFaces(studentsWithDescriptors)
 
         // Load AI Models
@@ -90,6 +112,7 @@ export default function AIScanner() {
         setLoading(false)
         setRecognitionStatus("scanning")
       } catch (error: any) {
+        console.error("Scanner Init Error:", error)
         toast.error("Gagal inisialisasi AI Scanner: " + error.message)
         setLoading(false)
       }
@@ -153,81 +176,7 @@ export default function AIScanner() {
     }
   }, [modelsLoaded])
 
-  // 3. Recognition Loop
-  const runRecognition = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !modelsLoaded) return
-
-    const options = new faceapi.TinyFaceDetectorOptions()
-    const detections = await faceapi
-      .detectAllFaces(videoRef.current, options)
-      .withFaceLandmarks()
-      .withFaceDescriptors()
-
-    const canvas = canvasRef.current
-    const displaySize = { width: videoRef.current.videoWidth, height: videoRef.current.videoHeight }
-    faceapi.matchDimensions(canvas, displaySize)
-
-    const resizedDetections = faceapi.resizeResults(detections, displaySize)
-    const ctx = canvas.getContext("2d")
-    ctx?.clearRect(0, 0, canvas.width, canvas.height)
-
-    if (detections.length === 0) {
-      setRecognitionStatus("scanning")
-    }
-
-    resizedDetections.forEach(detection => {
-      // Draw detection
-      const drawBox = new faceapi.draw.DrawBox(detection.detection.box, { 
-        label: "Detecting...",
-        boxColor: "rgba(255, 255, 255, 0.5)",
-        lineWidth: 2
-      })
-      drawBox.draw(canvas)
-
-      if (matcher) {
-        const result = matcher.findBestMatch(detection.descriptor)
-        
-        if (result.label !== "unknown") {
-          const student = studentsWithFaces.find(s => s.id === result.label)
-          
-          if (student) {
-            // Update status UI
-            setRecognitionStatus("recognized")
-            setLastRecognizedData(student)
-
-            // Cooldown Logic (5 seconds for same person)
-            const now = Date.now()
-            if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) {
-              return // Skip auto-save, already recently recognized
-            }
-
-            // Save Attendance
-            handleAutoAttendance(student.id, result.distance)
-            
-            // Mark last recognized
-            lastRecognizedIdRef.current = student.id
-            lastRecognizedTimeRef.current = now
-            
-            // Start local visual cooldown
-            setCooldown(true)
-            setTimeout(() => setCooldown(false), 3000)
-          }
-        } else {
-          setRecognitionStatus("unknown")
-        }
-      }
-    })
-
-    recognitionLoopRef.current = requestAnimationFrame(runRecognition)
-  }, [modelsLoaded, matcher, studentsWithFaces])
-
-  useEffect(() => {
-    if (stream && modelsLoaded) {
-      recognitionLoopRef.current = requestAnimationFrame(runRecognition)
-    }
-  }, [stream, modelsLoaded, runRecognition])
-
-  const handleAutoAttendance = async (studentId: string, distance: number) => {
+  const handleAutoAttendance = useCallback(async (studentId: string, distance: number) => {
     try {
       const confidence = 1 - distance
       await studentService.markAttendance({
@@ -239,7 +188,96 @@ export default function AIScanner() {
     } catch (error: any) {
       console.error("Auto attendance error:", error)
     }
-  }
+  }, [])
+
+  // 3. Recognition Loop
+  const runRecognition = useCallback(async () => {
+    if (!videoRef.current || videoRef.current.readyState !== 4 || !canvasRef.current || !modelsLoaded) {
+      recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+      return
+    }
+
+    try {
+      // Sensitivity settings: inputSize 160 is much faster for CPU fallback
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 })
+      
+      const detections = await faceapi
+        .detectAllFaces(videoRef.current, options)
+        .withFaceLandmarks()
+        .withFaceDescriptors()
+
+      const canvas = canvasRef.current
+      const displaySize = { 
+        width: videoRef.current.videoWidth, 
+        height: videoRef.current.videoHeight 
+      }
+      
+      if (displaySize.width > 0 && displaySize.height > 0) {
+        faceapi.matchDimensions(canvas, displaySize)
+
+        const resizedDetections = faceapi.resizeResults(detections, displaySize)
+        const ctx = canvas.getContext("2d")
+        ctx?.clearRect(0, 0, canvas.width, canvas.height)
+
+        if (detections.length === 0) {
+          setRecognitionStatus("scanning")
+        }
+
+        resizedDetections.forEach(detection => {
+          // Draw detection box
+          const drawBox = new faceapi.draw.DrawBox(detection.detection.box, { 
+            label: "Searching...",
+            boxColor: "rgba(255, 255, 255, 0.5)",
+            lineWidth: 2
+          })
+          drawBox.draw(canvas)
+
+          if (matcher && studentsWithFaces.length > 0) {
+            const result = matcher.findBestMatch(detection.descriptor)
+            
+            if (result.label !== "unknown") {
+              const student = studentsWithFaces.find(s => s.id === result.label)
+              
+              if (student) {
+                setRecognitionStatus("recognized")
+                setLastRecognizedData(student)
+
+                const now = Date.now()
+                if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) {
+                  return 
+                }
+
+                handleAutoAttendance(student.id, result.distance)
+                
+                lastRecognizedIdRef.current = student.id
+                lastRecognizedTimeRef.current = now
+                
+                setCooldown(true)
+                setTimeout(() => setCooldown(false), 3000)
+              }
+            } else {
+              setRecognitionStatus("unknown")
+            }
+          }
+        })
+      }
+    } catch (error: any) {
+      // Catch common tfjs backend errors without crashing the loop
+      if (error?.message?.includes('backend')) {
+        console.warn("TFJS Backend error - retrying next frame:", error.message)
+      } else {
+        console.error("Recognition loop error:", error)
+      }
+    }
+
+    recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+  }, [modelsLoaded, matcher, studentsWithFaces, handleAutoAttendance])
+
+  useEffect(() => {
+    if (stream && modelsLoaded) {
+      recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+    }
+  }, [stream, modelsLoaded, runRecognition])
 
   if (loading) {
     return (

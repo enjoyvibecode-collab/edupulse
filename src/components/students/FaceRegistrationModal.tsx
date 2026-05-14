@@ -38,6 +38,24 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
     async function loadModels() {
       try {
         setLoading(true)
+        
+        // Ensure AI Engine is ready
+        try {
+          const tf = (faceapi as any).tf;
+          if (tf && typeof tf.setBackend === 'function') {
+            await tf.setBackend('webgl').catch(async () => {
+              console.warn("Modal: WebGL failed, using CPU fallback");
+              return tf.setBackend('cpu');
+            });
+            
+            if (typeof tf.ready === 'function') {
+              await tf.ready();
+            }
+          }
+        } catch (e) {
+          console.warn("AI Backend init warning in modal:", e);
+        }
+
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -95,11 +113,16 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
   }, [modelsLoaded, isOpen])
 
   const handleDetect = async () => {
-    if (!videoRef.current || !modelsLoaded) return
+    if (!videoRef.current || videoRef.current.readyState !== 4 || !modelsLoaded) {
+      toast.error("Tunggu hingga kamera siap...");
+      return
+    }
 
     setDetecting(true)
     try {
-      const options = new faceapi.TinyFaceDetectorOptions()
+      // Improved sensitivity for detection: 160 is faster
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 }) 
+      
       const result = await faceapi
         .detectSingleFace(videoRef.current, options)
         .withFaceLandmarks()
