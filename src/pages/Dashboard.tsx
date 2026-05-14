@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, UserCheck, UserX, Clock, ArrowUpRight, TrendingUp, Loader2 } from "lucide-react"
+import { Users, UserCheck, UserX, Clock, ArrowUpRight, TrendingUp, Loader2, LogOut } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import { studentService } from "@/lib/studentService"
 import { supabase } from "@/lib/supabase"
@@ -56,9 +56,9 @@ export default function Dashboard() {
 
   const stats = [
     { title: "Total Siswa", value: statsData?.totalSiswa || "0", icon: Users, color: "text-blue-600", bg: "bg-blue-50", trend: "Database" },
-    { title: "Hadir Hari Ini", value: statsData?.hadirHariIni || "0", icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50", trend: statsData ? `${((statsData.hadirHariIni / statsData.totalSiswa) * 100 || 0).toFixed(1)}%` : "0%" },
-    { title: "Absen/Izin", value: statsData?.absen || "0", icon: UserX, color: "text-amber-600", bg: "bg-amber-50", trend: statsData ? `${((statsData.absen / statsData.totalSiswa) * 100 || 0).toFixed(1)}%` : "0%" },
-    { title: "Pulang", value: statsData?.pulang || "0", icon: Clock, color: "text-purple-600", bg: "bg-purple-50", trend: "Real-time" },
+    { title: "Hadir Pagi", value: statsData?.hadirPagi || "0", icon: UserCheck, color: "text-blue-600", bg: "bg-blue-100/50", trend: "Hadir Pagi" },
+    { title: "Hadir Dzuhur", value: statsData?.dzuhur || "0", icon: Clock, color: "text-amber-600", bg: "bg-amber-100/50", trend: "Dzuhur" },
+    { title: "Sudah Pulang", value: statsData?.pulang || "0", icon: LogOut, color: "text-emerald-600", bg: "bg-emerald-100/50", trend: "Pulang" },
   ]
 
   if (loading) {
@@ -155,29 +155,45 @@ export default function Dashboard() {
         
         <Card className="lg:col-span-3 border-none shadow-sm rounded-3xl overflow-hidden">
           <CardHeader className="p-4 md:p-6 border-b border-slate-50">
-            <CardTitle className="text-lg md:text-xl font-black italic uppercase italic tracking-tighter">Kelas Teraktif</CardTitle>
+            <CardTitle className="text-lg md:text-xl font-black italic uppercase italic tracking-tighter">Rekap Kelas</CardTitle>
           </CardHeader>
-          <CardContent className="p-5 md:p-6">
-             <div className="space-y-5 md:space-y-6">
-                {(statsData?.bestClasses || []).map((item: any, index: number) => {
-                  const colors = ["bg-primary", "bg-emerald-500", "bg-indigo-500", "bg-purple-500"];
-                  const color = colors[index % colors.length];
-                  
-                  return (
-                    <div key={item.name} className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 uppercase tracking-tighter">{item.name}</span>
-                        <span className="font-black text-primary italic">{item.value}%</span>
-                      </div>
-                      <div className="h-3 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-[1px]">
-                        <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out shadow-sm`} style={{ width: `${item.value}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!statsData?.bestClasses || statsData.bestClasses.length === 0) && (
-                  <p className="text-center text-[10px] font-bold text-slate-400 py-10 uppercase tracking-widest">Belum ada statistik kelas.</p>
-                )}
+          <CardContent className="p-0">
+             <div className="overflow-x-auto">
+               <table className="w-full text-left border-collapse">
+                 <thead className="bg-slate-50/50">
+                   <tr>
+                     <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Kelas</th>
+                     <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Pagi</th>
+                     <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Dzh</th>
+                     <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Plg</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100">
+                   {(statsData?.classRekap || []).map((item: any) => (
+                     <tr key={item.name} className="hover:bg-slate-50/30 transition-colors">
+                       <td className="p-4">
+                         <span className="font-bold text-slate-700 text-xs uppercase tracking-tighter">{item.name}</span>
+                       </td>
+                       <td className="p-4 text-center">
+                         <span className="font-mono text-xs font-bold text-blue-600">{item.pagi}</span>
+                       </td>
+                       <td className="p-4 text-center">
+                         <span className="font-mono text-xs font-bold text-amber-600">{item.dzuhur}</span>
+                       </td>
+                       <td className="p-4 text-center">
+                         <span className="font-mono text-xs font-bold text-emerald-600">{item.pulang}</span>
+                       </td>
+                     </tr>
+                   ))}
+                   {(!statsData?.classRekap || statsData.classRekap.length === 0) && (
+                     <tr>
+                       <td colSpan={4} className="p-8 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                         Belum ada data hadir.
+                       </td>
+                     </tr>
+                   )}
+                 </tbody>
+               </table>
              </div>
           </CardContent>
         </Card>

@@ -52,7 +52,7 @@ export interface Student {
 export interface AttendanceLog {
   id: string
   student_id: string
-  status: 'arrival' | 'departure'
+  status: 'hadir_pagi' | 'dzuhur' | 'pulang'
   confidence: number
   captured_image?: string
   created_at: string

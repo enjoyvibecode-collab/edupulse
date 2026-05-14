@@ -54,7 +54,7 @@ export default function Attendance() {
         ...logs.map(log => {
           const name = log.students?.full_name || "N/A"
           const nisn = log.students?.nisn || "N/A"
-          const status = log.status === 'arrival' ? 'MASUK' : 'PULANG'
+          const status = log.status === 'hadir_pagi' ? 'PAGI' : log.status === 'dzuhur' ? 'DZUHUR' : 'PULANG'
           const time = format(new Date(log.created_at), "yyyy-MM-dd HH:mm:ss")
           const conf = (log.confidence * 100).toFixed(1) + "%"
           return `"${name}","${nisn}","${status}","${time}","${conf}"`
@@ -143,7 +143,7 @@ export default function Attendance() {
     )
   }
 
-  const handleMarkAttendance = async (studentId: string, status: 'arrival' | 'departure') => {
+  const handleMarkAttendance = async (studentId: string, status: 'hadir_pagi' | 'dzuhur' | 'pulang') => {
     if (locationStatus !== 'allowed') {
       toast.error("Akses Ditolak: Anda berada di luar area sekolah")
       return
@@ -155,7 +155,12 @@ export default function Attendance() {
         status,
         confidence: 1
       })
-      toast.success(status === 'arrival' ? "Siswa berhasil diabsen masuk" : "Siswa berhasil diabsen pulang")
+      
+      const statusLabel = 
+        status === 'hadir_pagi' ? 'Hadir Pagi' : 
+        status === 'dzuhur' ? 'Dzuhur' : 'Pulang'
+      
+      toast.success(`Siswa berhasil presensi ${statusLabel}`)
       await fetchData(false) // Refresh silent
     } catch (error: any) {
       toast.error("Gagal memproses absensi: " + error.message)
@@ -181,7 +186,10 @@ export default function Attendance() {
       
       return {
         ...student,
-        status: latestLog ? latestLog.status : 'absent',
+        currentStatus: latestLog ? latestLog.status : 'absent',
+        hasPagi: studentLogs.some(l => l.status === 'hadir_pagi'),
+        hasDzuhur: studentLogs.some(l => l.status === 'dzuhur'),
+        hasPulang: studentLogs.some(l => l.status === 'pulang'),
         time: latestLog ? latestLog.created_at : null,
         confidence: latestLog ? latestLog.confidence : null,
         log_id: latestLog ? latestLog.id : null
@@ -194,8 +202,9 @@ export default function Attendance() {
 
   const getStatusConfig = (status: string) => {
     switch(status) {
-      case 'arrival': return { icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-100', label: 'Hadir/Masuk' };
-      case 'departure': return { icon: Clock, color: 'text-blue-500', bg: 'bg-blue-100', label: 'Selesai/Pulang' };
+      case 'hadir_pagi': return { icon: CheckCircle2, color: 'text-blue-500', bg: 'bg-blue-100', label: 'Hadir Pagi' };
+      case 'dzuhur': return { icon: Clock, color: 'text-amber-500', bg: 'bg-amber-100', label: 'Sholat Dzuhur' };
+      case 'pulang': return { icon: LogOut, color: 'text-emerald-500', bg: 'bg-emerald-100', label: 'Pulang Sekolah' };
       default: return { icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-50', label: 'Belum Hadir' };
     }
   }
@@ -286,8 +295,12 @@ export default function Attendance() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge className={log.status === 'arrival' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}>
-                                {log.status === 'arrival' ? 'Masuk' : 'Pulang'}
+                            <Badge className={
+                                log.status === 'hadir_pagi' ? 'bg-blue-100 text-blue-600' : 
+                                log.status === 'dzuhur' ? 'bg-amber-100 text-amber-600' : 
+                                'bg-emerald-100 text-emerald-600'
+                              }>
+                                {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right text-xs font-mono font-bold text-slate-500">
@@ -345,13 +358,14 @@ export default function Attendance() {
           ) : attendanceData.length > 0 ? (
             <div className="divide-y divide-slate-100">
               {attendanceData.map((record) => {
-                const config = getStatusConfig(record.status);
+                const config = getStatusConfig(record.currentStatus);
                 const timeStr = record.time ? format(new Date(record.time), "HH:mm:ss", { locale: localeId }) : "-";
-                const isArriving = processingId === `${record.id}-arrival`;
-                const isDeparting = processingId === `${record.id}-departure`;
+                const isPagi = processingId === `${record.id}-hadir_pagi`;
+                const isDzuhur = processingId === `${record.id}-dzuhur`;
+                const isPulang = processingId === `${record.id}-pulang`;
                 
                 return (
-                  <div key={record.id} className="p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors group">
+                  <div key={record.id} className="p-4 md:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4 flex-1">
                       <div className={`p-3 rounded-xl ${config.bg} shadow-sm group-hover:scale-110 transition-transform`}>
                         <config.icon className={`h-5 w-5 ${config.color}`} />
@@ -367,11 +381,6 @@ export default function Attendance() {
                           <span className="flex items-center gap-1">
                             <Clock size={12} className="text-primary" /> {timeStr}
                           </span>
-                          {record.confidence && (
-                            <span className="flex items-center gap-1">
-                              <AlertCircle size={12} className="text-primary" /> Confidence: {(record.confidence * 100).toFixed(1)}%
-                            </span>
-                          )}
                           <span className="flex items-center gap-1">
                             <MapPin size={12} className="text-primary" /> {record.time ? "Camera-Gate-01" : "Belum Terdeteksi"}
                           </span>
@@ -380,29 +389,55 @@ export default function Attendance() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                      <div className="grid grid-cols-2 sm:flex items-center gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
                          <Button 
                           size="sm" 
                           variant="ghost"
-                          className="h-10 px-3 rounded-xl font-bold text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 bg-emerald-50/50 flex-1 sm:flex-none border border-emerald-100"
-                          onClick={() => handleMarkAttendance(record.id, 'arrival')}
-                          disabled={!!processingId || record.status === 'arrival' || locationStatus !== 'allowed'}
+                          className={`h-10 px-3 rounded-xl font-bold transition-all border ${
+                            record.hasPagi 
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                            : 'bg-blue-50/50 text-blue-600 hover:bg-blue-100 border-blue-100'
+                          }`}
+                          onClick={() => handleMarkAttendance(record.id, 'hadir_pagi')}
+                          disabled={!!processingId || record.hasPagi || locationStatus !== 'allowed'}
                         >
-                          {isArriving ? <Loader2 size={14} className="animate-spin mr-2" /> : <UserCheck size={14} className="mr-2" />}
-                          Hadir
+                          {isPagi ? <Loader2 size={14} className="animate-spin mr-2" /> : <UserCheck size={14} className="mr-2" />}
+                          Pagi
                         </Button>
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          className="h-10 px-3 rounded-xl font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700 bg-blue-50/50 flex-1 sm:flex-none border border-blue-100"
-                          onClick={() => handleMarkAttendance(record.id, 'departure')}
-                          disabled={!!processingId || record.status === 'departure' || locationStatus !== 'allowed'}
+                          className={`h-10 px-3 rounded-xl font-bold transition-all border ${
+                            record.hasDzuhur 
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                            : !record.hasPagi
+                            ? 'bg-slate-50 text-slate-300 border-slate-100'
+                            : 'bg-amber-50/50 text-amber-600 hover:bg-amber-100 border-amber-100'
+                          }`}
+                          onClick={() => handleMarkAttendance(record.id, 'dzuhur')}
+                          disabled={!!processingId || record.hasDzuhur || !record.hasPagi || locationStatus !== 'allowed'}
                         >
-                          {isDeparting ? <Loader2 size={14} className="animate-spin mr-2" /> : <LogOut size={14} className="mr-2" />}
+                          {isDzuhur ? <Loader2 size={14} className="animate-spin mr-2" /> : <Clock size={14} className="mr-2" />}
+                          Dzuhur
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className={`h-10 px-3 rounded-xl font-bold transition-all border ${
+                            record.hasPulang
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                            : (!record.hasPagi || !record.hasDzuhur)
+                            ? 'bg-slate-50 text-slate-300 border-slate-100'
+                            : 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100 border-emerald-100'
+                          }`}
+                          onClick={() => handleMarkAttendance(record.id, 'pulang')}
+                          disabled={!!processingId || record.hasPulang || !record.hasPagi || !record.hasDzuhur || locationStatus !== 'allowed'}
+                        >
+                          {isPulang ? <Loader2 size={14} className="animate-spin mr-2" /> : <LogOut size={14} className="mr-2" />}
                           Pulang
                         </Button>
                       </div>
-                      <div className="w-px h-8 bg-slate-100 hidden md:block" />
+                      <div className="w-px h-8 bg-slate-100 hidden xl:block" />
                       <Badge className={`${config.bg} ${config.color} border-none font-black uppercase text-[10px] tracking-widest px-4 py-2.5 rounded-xl shadow-sm min-w-[110px] justify-center`}>
                         {config.label}
                       </Badge>

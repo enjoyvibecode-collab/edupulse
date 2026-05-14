@@ -113,7 +113,46 @@ export const studentService = {
     return data;
   },
 
+  async getTodayLogs(studentId: string) {
+    const today = new Date();
+    const start = startOfDay(today).toISOString();
+    const end = endOfDay(today).toISOString();
+
+    const { data, error } = await (supabase as any)
+      .from('attendance_logs')
+      .select('*')
+      .eq('student_id', studentId)
+      .gte('created_at', start)
+      .lte('created_at', end);
+    
+    if (error) throw error;
+    return data as AttendanceLog[];
+  },
+
   async markAttendance(log: Omit<AttendanceLog, 'id' | 'created_at'>) {
+    // 1. Get today's logs for this student
+    const todayLogs = await this.getTodayLogs(log.student_id);
+    
+    const hasPagi = todayLogs.some(l => l.status === 'hadir_pagi');
+    const hasDzuhur = todayLogs.some(l => l.status === 'dzuhur');
+    const hasPulang = todayLogs.some(l => l.status === 'pulang');
+
+    // 2. Validate sequence
+    if (log.status === 'hadir_pagi' && hasPagi) {
+      throw new Error("Siswa sudah melakukan presensi Hadir Pagi hari ini.");
+    }
+    
+    if (log.status === 'dzuhur') {
+      if (!hasPagi) throw new Error("Siswa harus Hadir Pagi terlebih dahulu.");
+      if (hasDzuhur) throw new Error("Siswa sudah melakukan presensi Dzuhur hari ini.");
+    }
+    
+    if (log.status === 'pulang') {
+      if (!hasPagi) throw new Error("Siswa harus Hadir Pagi terlebih dahulu.");
+      if (!hasDzuhur) throw new Error("Siswa harus presensi Dzuhur terlebih dahulu.");
+      if (hasPulang) throw new Error("Siswa sudah melakukan presensi Pulang hari ini.");
+    }
+
     const { data, error } = await (supabase as any)
       .from('attendance_logs')
       .insert([log])
@@ -131,7 +170,7 @@ export const studentService = {
 
     const results = await withTimeout(
       Promise.all([
-        (supabase as any).from('students').select('*'), // Need all students to group by class
+        (supabase as any).from('students').select('*'),
         (supabase as any).from('attendance_logs').select('*').gte('created_at', start).lte('created_at', end)
       ]),
       30000,
@@ -143,39 +182,42 @@ export const studentService = {
     const totalSiswa = students.length;
     const logs = (todayLogs as any).data || [];
     
-    // Count unique students present today
-    const uniquePresentIds = new Set(logs.filter((l: any) => l.status === 'arrival').map((l: any) => l.student_id));
-    const uniquePresent = uniquePresentIds.size;
-    const uniquePulang = new Set(logs.filter((l: any) => l.status === 'departure').map((l: any) => l.student_id)).size;
+    // Count stats for each type
+    const hadirPagi = new Set(logs.filter((l: any) => l.status === 'hadir_pagi').map((l: any) => l.student_id)).size;
+    const dzuhur = new Set(logs.filter((l: any) => l.status === 'dzuhur').map((l: any) => l.student_id)).size;
+    const pulang = new Set(logs.filter((l: any) => l.status === 'pulang').map((l: any) => l.student_id)).size;
 
-    // Calculate Class Attendance
-    const classStats: Record<string, { total: number, present: number }> = {};
+    // Calculate Class Detailed Stats
+    const classStats: Record<string, { total: number, pagi: number, dzuhur: number, pulang: number }> = {};
     
     students.forEach((s: any) => {
-      const cls = s.kelas || "Tanpa Kelas";
-      if (!classStats[cls]) classStats[cls] = { total: 0, present: 0 };
+      const cls = s.class_name || "Tanpa Kelas";
+      if (!classStats[cls]) classStats[cls] = { total: 0, pagi: 0, dzuhur: 0, pulang: 0 };
       classStats[cls].total++;
-      if (uniquePresentIds.has(s.id)) {
-        classStats[cls].present++;
-      }
+      
+      const studentLogs = logs.filter((l: any) => l.student_id === s.id);
+      if (studentLogs.some((l: any) => l.status === 'hadir_pagi')) classStats[cls].pagi++;
+      if (studentLogs.some((l: any) => l.status === 'dzuhur')) classStats[cls].dzuhur++;
+      if (studentLogs.some((l: any) => l.status === 'pulang')) classStats[cls].pulang++;
     });
 
-    const bestClasses = Object.entries(classStats)
+    const classRekap = Object.entries(classStats)
       .map(([name, data]) => ({
-        name: `Kelas ${name}`,
-        value: data.total > 0 ? Math.round((data.present / data.total) * 100) : 0
+        name: name,
+        total: data.total,
+        pagi: data.pagi,
+        dzuhur: data.dzuhur,
+        pulang: data.pulang
       }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 4); // Top 4
+      .sort((a, b) => a.name.localeCompare(b.name));
     
     return {
       totalSiswa,
-      hadirHariIni: uniquePresent,
-      absen: totalSiswa - uniquePresent,
-      pulang: uniquePulang,
-      bestClasses: bestClasses.length > 0 ? bestClasses : [
-        { name: "Memuat Data...", value: 0 }
-      ]
+      hadirPagi,
+      dzuhur,
+      pulang,
+      absen: totalSiswa - hadirPagi,
+      classRekap
     };
   },
 
@@ -196,7 +238,7 @@ export const studentService = {
     const weeklyData = days.map(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
       const dayLogs = (logs as any[]).filter(l => 
-        format(new Date(l.created_at), 'yyyy-MM-dd') === dateStr && l.status === 'arrival'
+        format(new Date(l.created_at), 'yyyy-MM-dd') === dateStr && l.status === 'hadir_pagi'
       );
       
       // Unique students per day

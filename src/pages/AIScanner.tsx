@@ -39,6 +39,7 @@ export default function AIScanner() {
   const [distanceFromSchool, setDistanceFromSchool] = useState<number | null>(null)
   
   // Real-time recognition state
+  const [scannerMode, setScannerMode] = useState<'hadir_pagi' | 'dzuhur' | 'pulang'>('hadir_pagi')
   const [recognitionStatus, setRecognitionStatus] = useState<"scanning" | "recognized" | "unknown" | "idle">("idle")
   const [lastRecognizedData, setLastRecognizedData] = useState<any>(null)
   const [cooldown, setCooldown] = useState(false)
@@ -241,7 +242,7 @@ export default function AIScanner() {
       const confidence = 1 - distance
       await studentService.markAttendance({
         student_id: studentId,
-        status: 'arrival',
+        status: scannerMode,
         confidence: Number(confidence.toFixed(2))
       })
       
@@ -250,7 +251,8 @@ export default function AIScanner() {
       setShowSuccessOverlay(true)
       setCooldown(true)
       
-      toast.success("Presensi berhasil dicatat secara otomatis!")
+      const modeLabel = scannerMode === 'hadir_pagi' ? 'PAGI' : scannerMode === 'dzuhur' ? 'DZUHUR' : 'PULANG'
+      toast.success(`Presensi ${modeLabel} berhasil dicatat secara otomatis!`)
       
       // Auto-clear overlay after 2.5 seconds
       setTimeout(() => {
@@ -260,8 +262,13 @@ export default function AIScanner() {
     } catch (error: any) {
       console.error("Auto attendance error:", error)
       playErrorSound()
+      toast.error(error.message)
+      
+      // Set short cooldown on error to prevent spamming failed attempts
+      setCooldown(true)
+      setTimeout(() => setCooldown(false), 2000)
     }
-  }, [locationStatus, cooldown])
+  }, [locationStatus, cooldown, scannerMode])
 
   // 3. Recognition Loop
   const runRecognition = useCallback(async () => {
@@ -371,15 +378,43 @@ export default function AIScanner() {
           </h1>
           <p className="text-muted-foreground font-medium">Terminal absensi otomatis berbasis pengenalan wajah.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+            <Button
+              size="sm"
+              variant={scannerMode === 'hadir_pagi' ? 'default' : 'ghost'}
+              onClick={() => setScannerMode('hadir_pagi')}
+              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                scannerMode === 'hadir_pagi' ? 'bg-blue-600 shadow-md' : 'text-slate-500 hover:bg-white'
+              }`}
+            >
+              Hadir Pagi
+            </Button>
+            <Button
+              size="sm"
+              variant={scannerMode === 'dzuhur' ? 'default' : 'ghost'}
+              onClick={() => setScannerMode('dzuhur')}
+              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                scannerMode === 'dzuhur' ? 'bg-amber-600 shadow-md' : 'text-slate-500 hover:bg-white'
+              }`}
+            >
+              Dzuhur
+            </Button>
+            <Button
+              size="sm"
+              variant={scannerMode === 'pulang' ? 'default' : 'ghost'}
+              onClick={() => setScannerMode('pulang')}
+              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
+                scannerMode === 'pulang' ? 'bg-emerald-600 shadow-md' : 'text-slate-500 hover:bg-white'
+              }`}
+            >
+              Pulang
+            </Button>
+          </div>
+          <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden md:block" />
           <Badge className="bg-emerald-500 text-white border-none px-3 py-1 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 flex items-center gap-2">
             <span className="w-2 h-2 bg-white rounded-full animate-pulse" /> Live Now
           </Badge>
-          <div className="h-10 w-[1px] bg-slate-200 mx-2" />
-          <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{format(new Date(), "EEEE")}</p>
-            <p className="text-sm font-bold text-slate-900">{format(new Date(), "d MMMM yyyy")}</p>
-          </div>
         </div>
       </div>
 
@@ -600,8 +635,12 @@ export default function AIScanner() {
                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">
                             {format(new Date(log.created_at), "HH:mm:ss", { locale: localeId })}
                           </span>
-                          <Badge className="bg-emerald-50 text-emerald-600 border-none font-bold text-[7px] uppercase px-1.5 h-3.5">
-                            Auto Verify
+                          <Badge className={`border-none font-bold text-[7px] uppercase px-1.5 h-3.5 ${
+                            log.status === 'hadir_pagi' ? 'bg-blue-50 text-blue-600' :
+                            log.status === 'dzuhur' ? 'bg-amber-50 text-amber-600' :
+                            'bg-emerald-50 text-emerald-600'
+                          }`}>
+                            {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
                           </Badge>
                         </div>
                       </div>
