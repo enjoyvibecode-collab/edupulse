@@ -383,22 +383,22 @@ export default function AIScanner() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Main Scanner Section */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-2xl shadow-primary/5 overflow-hidden rounded-[2.5rem] bg-slate-950 ring-1 ring-white/5">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
+          <Card className="border-none shadow-2xl shadow-primary/5 overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] bg-slate-950 ring-1 ring-white/5">
             <CardContent className="p-0 relative">
               {/* Futuristic Overlays */}
               <div className="absolute inset-0 pointer-events-none z-10">
                 {/* Corner Accents */}
-                <div className="absolute top-8 left-8 w-16 h-16 border-t-4 border-l-4 border-primary rounded-tl-2xl opacity-50" />
-                <div className="absolute top-8 right-8 w-16 h-16 border-t-4 border-r-4 border-primary rounded-tr-2xl opacity-50" />
-                <div className="absolute bottom-8 left-8 w-16 h-16 border-b-4 border-l-4 border-primary rounded-bl-2xl opacity-50" />
-                <div className="absolute bottom-8 right-8 w-16 h-16 border-b-4 border-r-4 border-primary rounded-br-2xl opacity-50" />
+                <div className="absolute top-4 left-4 md:top-8 md:left-8 w-10 h-10 md:w-16 md:h-16 border-t-4 border-l-4 border-primary rounded-tl-xl md:rounded-tl-2xl opacity-50" />
+                <div className="absolute top-4 right-4 md:top-8 md:right-8 w-10 h-10 md:w-16 md:h-16 border-t-4 border-r-4 border-primary rounded-tr-xl md:rounded-tr-2xl opacity-50" />
+                <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-10 h-10 md:w-16 md:h-16 border-b-4 border-l-4 border-primary rounded-bl-xl md:rounded-bl-2xl opacity-50" />
+                <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 w-10 h-10 md:w-16 md:h-16 border-b-4 border-r-4 border-primary rounded-br-xl md:rounded-br-2xl opacity-50" />
                 
                 {/* Face Guide Circle */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div className={`w-[220px] h-[280px] border-4 border-dashed rounded-[100px] transition-all duration-300 ${
+                  <div className={`w-[180px] h-[240px] md:w-[220px] md:h-[280px] border-4 border-dashed rounded-[80px] md:rounded-[100px] transition-all duration-300 ${
                     cooldown ? 'border-primary/0' : 
                     recognitionStatus === 'recognized' ? 'border-emerald-500 scale-105' : 
                     recognitionStatus === 'unknown' ? 'border-rose-500' : 
@@ -416,12 +416,12 @@ export default function AIScanner() {
 
                 {/* Success Pop-up Overlay */}
                 {showSuccessOverlay && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-500/90 backdrop-blur-md z-40 animate-in fade-in zoom-in duration-300">
-                    <div className="bg-white rounded-full p-4 mb-6 shadow-2xl animate-bounce">
-                      <CheckCircle2 className="w-16 h-16 text-emerald-500" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-emerald-500/90 backdrop-blur-md z-40 animate-in fade-in zoom-in duration-300 p-6 text-center">
+                    <div className="bg-white rounded-full p-3 md:p-4 mb-4 md:mb-6 shadow-2xl animate-bounce">
+                      <CheckCircle2 className="w-12 h-12 md:w-16 md:h-16 text-emerald-500" />
                     </div>
-                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Presensi Berhasil!</h2>
-                    <p className="text-emerald-100 font-bold uppercase tracking-widest text-sm text-center px-12">
+                    <h2 className="text-2xl md:text-4xl font-black text-white italic uppercase tracking-tighter mb-2">Presensi Berhasil!</h2>
+                    <p className="text-emerald-100 font-bold uppercase tracking-widest text-xs md:text-sm px-6 md:px-12">
                       Selamat datang, <span className="text-white underline">{lastRecognizedData?.name}</span>.<br/>
                       Silahkan siswa berikutnya bersiap.
                     </p>
@@ -430,11 +430,11 @@ export default function AIScanner() {
 
                 {/* Ready Message for Orderly Queue */}
                 {cooldown && !showSuccessOverlay && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm z-30">
-                    <div className="flex flex-col items-center gap-4 bg-slate-950/80 p-8 rounded-[2rem] border border-white/10 shadow-2xl">
-                       <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-                       <div className="text-center">
-                         <h3 className="text-xl font-black text-white italic uppercase italic">Processing Next...</h3>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-sm z-30 p-4">
+                    <div className="flex flex-col items-center gap-4 bg-slate-950/80 p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border border-white/10 shadow-2xl text-center">
+                       <div className="w-10 h-10 md:w-12 md:h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                       <div>
+                         <h3 className="text-lg md:text-xl font-black text-white italic uppercase italic">Processing Next...</h3>
                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 flex items-center justify-center gap-2">
                            <Info size={12} className="text-primary" /> Siswa Berikutnya Mohon Menunggu
                          </p>
@@ -444,7 +444,7 @@ export default function AIScanner() {
                 )}
               </div>
 
-              <div className="aspect-video relative group">
+              <div className="aspect-[4/3] md:aspect-video relative group">
                 <video 
                   ref={videoRef} 
                   autoPlay 

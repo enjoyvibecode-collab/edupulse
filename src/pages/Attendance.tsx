@@ -379,12 +379,12 @@ export default function Attendance() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col md:flex-row items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <div className="grid grid-cols-2 sm:flex items-center gap-2">
                          <Button 
                           size="sm" 
                           variant="ghost"
-                          className="h-9 px-3 rounded-lg font-bold text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 bg-emerald-50/50"
+                          className="h-10 px-3 rounded-xl font-bold text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 bg-emerald-50/50 flex-1 sm:flex-none border border-emerald-100"
                           onClick={() => handleMarkAttendance(record.id, 'arrival')}
                           disabled={!!processingId || record.status === 'arrival' || locationStatus !== 'allowed'}
                         >
@@ -394,7 +394,7 @@ export default function Attendance() {
                         <Button 
                           size="sm" 
                           variant="ghost"
-                          className="h-9 px-3 rounded-lg font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700 bg-blue-50/50"
+                          className="h-10 px-3 rounded-xl font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-700 bg-blue-50/50 flex-1 sm:flex-none border border-blue-100"
                           onClick={() => handleMarkAttendance(record.id, 'departure')}
                           disabled={!!processingId || record.status === 'departure' || locationStatus !== 'allowed'}
                         >
@@ -403,7 +403,7 @@ export default function Attendance() {
                         </Button>
                       </div>
                       <div className="w-px h-8 bg-slate-100 hidden md:block" />
-                      <Badge className={`${config.bg} ${config.color} border-none font-black uppercase text-[10px] tracking-widest px-4 py-2 rounded-full shadow-sm min-w-[110px] justify-center`}>
+                      <Badge className={`${config.bg} ${config.color} border-none font-black uppercase text-[10px] tracking-widest px-4 py-2.5 rounded-xl shadow-sm min-w-[110px] justify-center`}>
                         {config.label}
                       </Badge>
                     </div>

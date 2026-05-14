@@ -255,93 +255,153 @@ export default function Students() {
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Memuat Data Siswa...</p>
             </div>
           ) : filteredStudents.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="hover:bg-transparent border-none">
-                    <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest pl-6">Profil Siswa</TableHead>
-                    <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">NISN</TableHead>
-                    <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Kelas</TableHead>
-                    <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Orang Tua/Wali</TableHead>
-                    <TableHead className="w-[80px] pr-6"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.map((student) => (
-                    <TableRow key={student.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <TableCell className="pl-6">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={student.photo_url} />
-                            <AvatarFallback className="bg-primary/5 text-primary text-xs font-black">
-                              {student.full_name.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{student.full_name}</span>
-                              {student.face_descriptor && (
-                                <Badge className="h-4 px-1.5 bg-emerald-100 text-emerald-600 border-none font-bold text-[8px] uppercase">
-                                  AI Ready
-                                </Badge>
-                              )}
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="hover:bg-transparent border-none">
+                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest pl-6">Profil Siswa</TableHead>
+                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">NISN</TableHead>
+                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Kelas</TableHead>
+                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">Orang Tua/Wali</TableHead>
+                      <TableHead className="w-[80px] pr-6"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                              <AvatarImage src={student.photo_url} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-xs font-black">
+                                {student.full_name.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{student.full_name}</span>
+                                {student.face_descriptor && (
+                                  <Badge className="h-4 px-1.5 bg-emerald-100 text-emerald-600 border-none font-bold text-[8px] uppercase">
+                                    AI Ready
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-muted-foreground font-mono tracking-tighter">ID: {student.id.split('-')[0]}</span>
                             </div>
-                            <span className="text-[10px] text-muted-foreground font-mono tracking-tighter">ID: {student.id.split('-')[0]}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-[13px] text-slate-600 font-medium">{student.nisn}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-white text-primary border-primary/20 font-black text-[10px] uppercase px-2.5">
+                            {student.class_name}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-700">{student.parent_name}</span>
+                            <span className="text-[10px] text-muted-foreground font-medium">{student.parent_phone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="pr-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white hover:text-primary outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+                            >
+                              <MoreVertical size={18} />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[180px] p-2 space-y-1">
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setSelectedForFace(student)
+                                  setIsFaceModalOpen(true)
+                                }}
+                                className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
+                              >
+                                <Sparkles className="mr-2 h-4 w-4" /> Register Face
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleEdit(student)}
+                                className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+                              >
+                                <Edit2 className="mr-2 h-4 w-4" /> Edit Data
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDelete(student.id)}
+                                className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-destructive focus:text-destructive focus:bg-destructive/5"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Hapus Siswa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {filteredStudents.map((student) => (
+                  <div key={student.id} className="p-4 flex items-center gap-4 active:bg-slate-50 transition-colors">
+                    <div className="relative" onClick={() => {
+                      setSelectedForFace(student)
+                      setIsFaceModalOpen(true)
+                    }}>
+                      <Avatar className="h-14 w-14 border-2 border-white shadow-md ring-1 ring-slate-100 rounded-2xl">
+                        <AvatarImage src={student.photo_url} className="rounded-2xl" />
+                        <AvatarFallback className="bg-primary/5 text-primary text-lg font-black rounded-2xl">
+                          {student.full_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {student.face_descriptor && (
+                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-lg p-1 shadow-lg shadow-emerald-500/20 border-2 border-white">
+                          <CheckCircle className="w-3 h-3" />
                         </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-[13px] text-slate-600 font-medium">{student.nisn}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-white text-primary border-primary/20 font-black text-[10px] uppercase px-2.5">
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0" onClick={() => handleEdit(student)}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="font-bold text-slate-900 truncate pr-2">{student.full_name}</span>
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-none font-black text-[9px] px-2 py-0 h-4">
                           {student.class_name}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700">{student.parent_name}</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">{student.parent_phone}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="pr-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white hover:text-primary outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
-                          >
-                            <MoreVertical size={18} />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-[180px] p-2 space-y-1">
-                            <DropdownMenuItem className="font-bold text-xs p-2.5 cursor-pointer rounded-lg">
-                              <ExternalLink className="mr-2 h-4 w-4" /> Lihat Detail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setSelectedForFace(student)
-                                setIsFaceModalOpen(true)
-                              }}
-                              className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
-                            >
-                              <Sparkles className="mr-2 h-4 w-4" /> Register Face
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleEdit(student)}
-                              className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-blue-600 focus:text-blue-700 focus:bg-blue-50"
-                            >
-                              <Edit2 className="mr-2 h-4 w-4" /> Edit Data
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(student.id)}
-                              className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-destructive focus:text-destructive focus:bg-destructive/5"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Hapus Siswa
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                      <p className="text-[10px] font-mono text-slate-400 mb-1">NISN: {student.nisn}</p>
+                      <div className="flex items-center gap-1.5">
+                         <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                         <p className="text-[10px] font-bold text-slate-500 truncate">Ortu: {student.parent_name}</p>
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 shrink-0"
+                      >
+                        <MoreVertical size={18} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-[160px] p-2">
+                        <DropdownMenuItem onClick={() => handleEdit(student)} className="font-bold text-xs p-3">
+                          <Edit2 className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                            setSelectedForFace(student)
+                            setIsFaceModalOpen(true)
+                          }} className="font-bold text-xs p-3 text-emerald-600">
+                          <Sparkles className="mr-2 h-4 w-4" /> Face AI
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDelete(student.id)} className="font-bold text-xs p-3 text-rose-500">
+                          <Trash2 className="mr-2 h-4 w-4" /> Hapus
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="flex flex-col items-center justify-center py-24 px-4 text-center gap-4">
               <div className="w-20 h-20 bg-slate-50 text-slate-200 rounded-full flex items-center justify-center">

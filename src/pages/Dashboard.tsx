@@ -77,74 +77,74 @@ export default function Dashboard() {
         <p className="text-muted-foreground">Analisis kehadiran sekolah real-time untuk hari ini.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+          <Card key={stat.title} className="border-none shadow-sm hover:shadow-md transition-all group overflow-hidden relative rounded-2xl">
             <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 ${stat.bg}`} />
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+            <CardHeader className="flex flex-row items-center justify-between pb-1 md:pb-2 space-y-0 p-3 md:p-6">
+              <CardTitle className="text-[10px] md:text-sm font-bold text-muted-foreground uppercase tracking-wider">
                 {stat.title}
               </CardTitle>
-              <div className={`p-2 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <div className={`p-1.5 md:p-2 rounded-lg ${stat.bg} hidden sm:block`}>
+                <stat.icon className={`h-3 w-3 md:h-4 md:w-4 ${stat.color}`} />
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold font-mono tracking-tight">{stat.value}</div>
+            <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+              <div className="text-xl md:text-2xl font-black font-mono tracking-tight text-slate-900">{stat.value}</div>
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-xs font-semibold text-emerald-600 flex items-center bg-emerald-50 px-1.5 py-0.5 rounded">
-                  <TrendingUp size={10} className="mr-1" />
+                <span className={`text-[8px] md:text-xs font-bold ${stat.color} flex items-center ${stat.bg} px-1.5 py-0.5 rounded-md`}>
                   {stat.trend}
                 </span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">vs kemarin</span>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Grafik Kehadiran Mingguan
-              <ArrowUpRight size={20} className="text-muted-foreground" />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="lg:col-span-4 border-none shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="p-4 md:p-6 border-b border-slate-50">
+            <CardTitle className="flex items-center justify-between text-lg md:text-xl font-black italic uppercase italic tracking-tighter">
+              Grafik Mingguan
+              <div className="p-2 bg-slate-50 rounded-xl text-slate-400">
+                <TrendingUp size={18} />
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
+          <CardContent className="p-3 md:p-6">
+            <div className="h-[250px] md:h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -30, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }}
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
                     dy={10}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 12 }} 
+                    tick={{ fill: '#94a3b8', fontSize: 10 }} 
                   />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
                     contentStyle={{ 
-                      borderRadius: '12px', 
+                      borderRadius: '16px', 
                       border: 'none', 
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      fontSize: '12px',
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+                      fontSize: '11px',
                       fontWeight: 'bold'
                     }}
                   />
                   <Bar 
                     dataKey="hadir" 
-                    radius={[6, 6, 0, 0]} 
-                    barSize={32}
+                    radius={[8, 8, 0, 0]} 
+                    barSize={window.innerWidth < 768 ? 20 : 32}
                   >
                     {weeklyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === weeklyData.length - 1 ? '#2563eb' : '#94a3b8'} />
+                      <Cell key={`cell-${index}`} fill={index === weeklyData.length - 1 ? '#0F172A' : '#E2E8F0'} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -152,30 +152,31 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="col-span-3 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Kehadiran Kelas Terbaik</CardTitle>
+        
+        <Card className="lg:col-span-3 border-none shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="p-4 md:p-6 border-b border-slate-50">
+            <CardTitle className="text-lg md:text-xl font-black italic uppercase italic tracking-tighter">Kelas Teraktif</CardTitle>
           </CardHeader>
-          <CardContent>
-             <div className="space-y-6">
+          <CardContent className="p-5 md:p-6">
+             <div className="space-y-5 md:space-y-6">
                 {(statsData?.bestClasses || []).map((item: any, index: number) => {
-                  const colors = ["bg-emerald-500", "bg-blue-500", "bg-indigo-500", "bg-purple-500"];
+                  const colors = ["bg-primary", "bg-emerald-500", "bg-indigo-500", "bg-purple-500"];
                   const color = colors[index % colors.length];
                   
                   return (
                     <div key={item.name} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium text-slate-700">{item.name}</span>
-                        <span className="font-mono text-slate-500">{item.value}%</span>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700 uppercase tracking-tighter">{item.name}</span>
+                        <span className="font-black text-primary italic">{item.value}%</span>
                       </div>
-                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`} style={{ width: `${item.value}%` }} />
+                      <div className="h-3 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-[1px]">
+                        <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out shadow-sm`} style={{ width: `${item.value}%` }} />
                       </div>
                     </div>
                   );
                 })}
                 {(!statsData?.bestClasses || statsData.bestClasses.length === 0) && (
-                  <p className="text-center text-xs text-slate-400 py-8">Belum ada data kehadiran kelas hari ini.</p>
+                  <p className="text-center text-[10px] font-bold text-slate-400 py-10 uppercase tracking-widest">Belum ada statistik kelas.</p>
                 )}
              </div>
           </CardContent>
