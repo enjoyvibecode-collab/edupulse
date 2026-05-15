@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS public.attendance_logs (
   status TEXT NOT NULL CHECK (status IN ('hadir_pagi', 'dzuhur', 'pulang')),
   confidence FLOAT NOT NULL,
   captured_image TEXT,
+  is_deleted BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  deleted_by UUID REFERENCES public.profiles(id),
+  edited_at TIMESTAMP WITH TIME ZONE,
+  correction_note TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -41,11 +46,23 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 5. Create attendance_audit_logs table
+CREATE TABLE IF NOT EXISTS public.attendance_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  attendance_id UUID REFERENCES public.attendance_logs(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL CHECK (action_type IN ('CREATE', 'UPDATE', 'DELETE')),
+  old_data JSONB,
+  new_data JSONB,
+  action_by UUID REFERENCES public.profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- ENABLE ROW LEVEL SECURITY
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
 -- ... (skipping some existing policies for clarity in replacement) ...
@@ -60,6 +77,18 @@ USING (EXISTS (
 -- Audit Logs: System can insert audit logs
 CREATE POLICY "System can insert audit logs"
 ON public.audit_logs FOR INSERT
+WITH CHECK (true);
+
+-- Attendance Audit Logs: Admins can view
+CREATE POLICY "Admins can view attendance audit logs"
+ON public.attendance_audit_logs FOR SELECT
+USING (EXISTS (
+  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah', 'guru')
+));
+
+-- Attendance Audit Logs: System can insert
+CREATE POLICY "System can insert attendance audit logs"
+ON public.attendance_audit_logs FOR INSERT
 WITH CHECK (true);
 
 -- Profiles: Users can view their own profile
