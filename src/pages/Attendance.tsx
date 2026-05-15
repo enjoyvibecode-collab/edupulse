@@ -605,12 +605,12 @@ export default function Attendance() {
                           className={`h-10 px-3 rounded-xl font-bold transition-all border ${
                             record.hasDzuhur 
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                            : (!record.hasPagi || !isDzuhurWindow)
+                            : !isDzuhurWindow
                             ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                             : 'bg-amber-50/50 text-amber-600 hover:bg-amber-100 border-amber-100 shadow-sm'
                           }`}
                           onClick={() => handleMarkAttendance(record.id, 'dzuhur')}
-                          disabled={!!processingId || record.hasDzuhur || !record.hasPagi || !isDzuhurWindow || locationStatus !== 'allowed'}
+                          disabled={!!processingId || record.hasDzuhur || !isDzuhurWindow || locationStatus !== 'allowed'}
                         >
                           {isDzuhur ? <Loader2 size={14} className="animate-spin mr-2" /> : <Clock size={14} className="mr-2" />}
                           Dzuhur
@@ -621,12 +621,12 @@ export default function Attendance() {
                           className={`h-10 px-3 rounded-xl font-bold transition-all border ${
                             record.hasPulang
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                            : (!record.hasPagi || !record.hasDzuhur || !isPulangWindow)
+                            : !isPulangWindow
                             ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                             : 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100 border-emerald-100 shadow-sm'
                           }`}
                           onClick={() => handleMarkAttendance(record.id, 'pulang')}
-                          disabled={!!processingId || record.hasPulang || !record.hasPagi || !record.hasDzuhur || !isPulangWindow || locationStatus !== 'allowed'}
+                          disabled={!!processingId || record.hasPulang || !isPulangWindow || locationStatus !== 'allowed'}
                         >
                           {isPulang ? <Loader2 size={14} className="animate-spin mr-2" /> : <LogOut size={14} className="mr-2" />}
                           Pulang

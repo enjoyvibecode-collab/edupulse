@@ -21,86 +21,100 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true;
+
     // Get initial session
     const initAuth = async () => {
       console.log('Starting auth initialization...');
-      // Emergency hard timeout to prevent infinite loading
-      const hardTimeoutId = setTimeout(() => {
-        setLoading((prev) => {
-          if (prev) {
-            console.warn('CRITICAL: Auth initialization hard-timeout hit after 45s. Forcing UI load.');
-            return false;
-          }
-          return prev;
-        });
-      }, 45000);
-
+      
       try {
-        console.log('Fetching Supabase session...');
-        // Wrap getSession in a timeout
-        const { data: { session }, error } = await withTimeout(
+        // First try to get the session with a reasonable timeout
+        // If it times out, we don't throw immediately, we'll wait for onAuthStateChange
+        console.log('Fetching initial session...');
+        const sessionResult = await withTimeout(
           supabase.auth.getSession(),
-          60000,
-          'Auth Session Fetch'
-        ) as any
+          20000, // 20s initial attempt
+          'Initial Session Fetch'
+        ).catch(err => {
+          console.warn('Initial session fetch timed out/failed, waiting for auth state change:', err.message);
+          return { data: { session: null }, error: null };
+        });
+
+        const { data: { session }, error } = sessionResult as any;
         
-        if (error) throw error
+        if (error) throw error;
         
-        console.log('Session fetched successfully:', !!session);
-        setSession(session)
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          console.log('User found, fetching profile...');
-          await fetchProfile(session.user.id)
-        } else {
-          console.log('No active session found.');
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await fetchProfile(session.user.id);
+          }
         }
       } catch (error) {
-        console.error('Initial session fetch error:', error)
+        console.error('Final auth initialization error:', error);
       } finally {
-        console.log('Auth initialization finished.');
-        clearTimeout(hardTimeoutId);
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    }
+    };
 
-    initAuth()
+    initAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes - this is the most reliable source
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event);
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-      }
-      setLoading(false)
-    })
+      console.log('Auth state changed event:', event);
+      
+      if (!isMounted) return;
 
-    return () => subscription.unsubscribe()
-  }, [])
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   async function fetchProfile(userId: string) {
+    if (!userId) return;
+    
     try {
-      // Use supabase directly with a timeout
-      const response = await withTimeout(
+      console.log('Fetching profile for:', userId);
+      const { data, error } = await withTimeout(
         supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .single(),
-        60000,
-        'Fetch Profile'
-      ) as any
+        15000, // 15s for profile is plenty
+        'Profile Fetch'
+      ) as any;
 
-      const { data, error } = response
-      setProfile(data)
-    } catch (error) {
-      console.error('Error fetching profile:', error)
+      if (error) {
+        // If it's a "not found" error, it's fine
+        if (error.code === 'PGRST116') {
+          console.warn('Profile not found for user:', userId);
+        } else {
+          throw error;
+        }
+      }
+      
+      setProfile(data);
+    } catch (error: any) {
+      console.error('Error in fetchProfile:', error.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

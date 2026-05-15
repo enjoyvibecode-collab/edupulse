@@ -6,24 +6,37 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Clean the URL: ensure it's a valid Supabase origin
 if (supabaseUrl) {
-  supabaseUrl = supabaseUrl.trim();
-  // Remove protocols to re-add consistently
-  supabaseUrl = supabaseUrl.replace(/^https?:\/\//, '');
-  // Remove all path segments to get just the domain
-  supabaseUrl = supabaseUrl.split('/')[0];
-  // Re-add https
-  supabaseUrl = `https://${supabaseUrl}`;
+  supabaseUrl = supabaseUrl.trim().replace(/\/$/, ''); // Trim and remove trailing slash
+  if (!supabaseUrl.startsWith('http')) {
+    supabaseUrl = `https://${supabaseUrl}`;
+  }
 }
 
-const isConfigured = !!supabaseUrl && supabaseUrl.includes('.supabase.co') && !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key';
+const isValidUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.endsWith('.supabase.co') || parsed.hostname === 'localhost';
+  } catch {
+    return false;
+  }
+};
 
-if (!isConfigured) {
-  console.warn('Supabase is not fully configured. Some features may not work.');
+const isConfigured = !!supabaseUrl && isValidUrl(supabaseUrl) && !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key';
+
+if (!isConfigured && typeof window !== 'undefined') {
+  console.warn('Supabase is not fully configured. URL:', supabaseUrl, 'Key set:', !!supabaseAnonKey);
 }
 
 export const supabase = createClient<Database>(
   supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder-key'
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  }
 );
 
 /**

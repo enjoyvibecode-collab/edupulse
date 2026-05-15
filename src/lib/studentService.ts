@@ -147,20 +147,17 @@ export const studentService = {
     const hasDzuhur = todayLogs.some(l => l.status === 'dzuhur');
     const hasPulang = todayLogs.some(l => l.status === 'pulang');
 
-    // 3. Validate sequence & duplicates
+    // 3. Validate duplicates
     if (log.status === 'hadir_pagi' && hasPagi) {
       throw new Error("Siswa sudah melakukan presensi Hadir Pagi hari ini.");
     }
     
-    if (log.status === 'dzuhur') {
-      if (!hasPagi) throw new Error("Siswa harus Hadir Pagi terlebih dahulu.");
-      if (hasDzuhur) throw new Error("Siswa sudah melakukan presensi Dzuhur hari ini.");
+    if (log.status === 'dzuhur' && hasDzuhur) {
+      throw new Error("Siswa sudah melakukan presensi Dzuhur hari ini.");
     }
     
-    if (log.status === 'pulang') {
-      if (!hasPagi) throw new Error("Siswa harus Hadir Pagi terlebih dahulu.");
-      if (!hasDzuhur) throw new Error("Siswa harus presensi Dzuhur terlebih dahulu.");
-      if (hasPulang) throw new Error("Siswa sudah melakukan presensi Pulang hari ini.");
+    if (log.status === 'pulang' && hasPulang) {
+      throw new Error("Siswa sudah melakukan presensi Pulang hari ini.");
     }
 
     const { data, error } = await (supabase as any)
