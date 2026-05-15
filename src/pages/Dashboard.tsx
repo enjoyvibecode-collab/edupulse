@@ -72,9 +72,15 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-sans">Ringkasan Dashboard</h1>
-        <p className="text-muted-foreground">Analisis kehadiran sekolah real-time untuk hari ini.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-sans">Ringkasan Dashboard</h1>
+          <p className="text-muted-foreground">Analisis kehadiran sekolah real-time untuk hari ini.</p>
+        </div>
+        <div className="flex items-center gap-2 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">System Monitoring Active</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

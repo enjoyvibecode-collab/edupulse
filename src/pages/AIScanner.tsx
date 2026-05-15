@@ -23,6 +23,7 @@ import { supabase, withTimeout } from "@/lib/supabase"
 import { format } from "date-fns"
 import { id as localeId } from "date-fns/locale"
 import { calculateDistance, SCHOOL_ZONE, playSuccessSound, playErrorSound } from "@/lib/geoUtils"
+import { isWindowActive, ATTENDANCE_WINDOWS, AttendanceType } from "@/lib/attendanceConfig"
 
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
 const MATCH_THRESHOLD = 0.55 // loosened from 0.45 for better recognition
@@ -39,8 +40,9 @@ export default function AIScanner() {
   const [distanceFromSchool, setDistanceFromSchool] = useState<number | null>(null)
   
   // Real-time recognition state
-  const [scannerMode, setScannerMode] = useState<'hadir_pagi' | 'dzuhur' | 'pulang'>('hadir_pagi')
+  const [scannerMode, setScannerMode] = useState<AttendanceType>('hadir_pagi')
   const [recognitionStatus, setRecognitionStatus] = useState<"scanning" | "recognized" | "unknown" | "idle">("idle")
+  const [currentTime, setCurrentTime] = useState(new Date())
   const [lastRecognizedData, setLastRecognizedData] = useState<any>(null)
   const [cooldown, setCooldown] = useState(false)
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
@@ -54,6 +56,22 @@ export default function AIScanner() {
 
   // 1. Initial Load: Models & Student Data
   useEffect(() => {
+    // Timer to update UI every minute
+    const timer = setInterval(() => {
+      const now = new Date()
+      setCurrentTime(now)
+      
+      // Auto-set mode based on time if in idle/init
+      if (isWindowActive('hadir_pagi', now)) setScannerMode('hadir_pagi')
+      else if (isWindowActive('dzuhur', now)) setScannerMode('dzuhur')
+      else if (isWindowActive('pulang', now)) setScannerMode('pulang')
+    }, 60000)
+
+    const now = new Date()
+    if (isWindowActive('hadir_pagi', now)) setScannerMode('hadir_pagi')
+    else if (isWindowActive('dzuhur', now)) setScannerMode('dzuhur')
+    else if (isWindowActive('pulang', now)) setScannerMode('pulang')
+
     async function init() {
       try {
         setLoading(true)
@@ -144,6 +162,7 @@ export default function AIScanner() {
       .subscribe()
 
     return () => {
+      clearInterval(timer)
       stopVideo()
       if (recognitionLoopRef.current) cancelAnimationFrame(recognitionLoopRef.current)
       supabase.removeChannel(channel)
@@ -237,6 +256,12 @@ export default function AIScanner() {
     
     // Prevent immediate re-trigger during cooldown
     if (cooldown) return;
+
+    const now = new Date()
+    if (!isWindowActive(scannerMode, now)) {
+      console.warn(`Attendance blocked: Outside ${scannerMode} window`)
+      return
+    }
 
     try {
       const confidence = 1 - distance
@@ -379,37 +404,41 @@ export default function AIScanner() {
           <p className="text-muted-foreground font-medium">Terminal absensi otomatis berbasis pengenalan wajah.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {/* Time and Active Window Info */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+             <div className="flex flex-col">
+               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{format(currentTime, "HH:mm")}</span>
+               <span className={`text-[10px] font-bold uppercase transition-colors ${
+                 isWindowActive(scannerMode, currentTime) ? 'text-emerald-500' : 'text-rose-500'
+               }`}>
+                 {isWindowActive(scannerMode, currentTime) ? 'Window Open' : 'Window Closed'}
+               </span>
+             </div>
+          </div>
+
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
-            <Button
-              size="sm"
-              variant={scannerMode === 'hadir_pagi' ? 'default' : 'ghost'}
-              onClick={() => setScannerMode('hadir_pagi')}
-              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                scannerMode === 'hadir_pagi' ? 'bg-blue-600 shadow-md' : 'text-slate-500 hover:bg-white'
-              }`}
-            >
-              Hadir Pagi
-            </Button>
-            <Button
-              size="sm"
-              variant={scannerMode === 'dzuhur' ? 'default' : 'ghost'}
-              onClick={() => setScannerMode('dzuhur')}
-              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                scannerMode === 'dzuhur' ? 'bg-amber-600 shadow-md' : 'text-slate-500 hover:bg-white'
-              }`}
-            >
-              Dzuhur
-            </Button>
-            <Button
-              size="sm"
-              variant={scannerMode === 'pulang' ? 'default' : 'ghost'}
-              onClick={() => setScannerMode('pulang')}
-              className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all ${
-                scannerMode === 'pulang' ? 'bg-emerald-600 shadow-md' : 'text-slate-500 hover:bg-white'
-              }`}
-            >
-              Pulang
-            </Button>
+            {Object.entries(ATTENDANCE_WINDOWS).map(([key, window]) => {
+              const type = key as AttendanceType;
+              const isActive = scannerMode === type;
+              const isAvailable = isWindowActive(type, currentTime);
+              
+              return (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={isActive ? 'default' : 'ghost'}
+                  onClick={() => setScannerMode(type)}
+                  className={`h-9 px-4 rounded-lg font-black text-[10px] uppercase tracking-widest transition-all relative ${
+                    isActive 
+                      ? (type === 'hadir_pagi' ? 'bg-blue-600 shadow-md' : type === 'dzuhur' ? 'bg-amber-600 shadow-md' : 'bg-emerald-600 shadow-md')
+                      : 'text-slate-500 hover:bg-white'
+                  }`}
+                >
+                  {window.label.replace('Presensi ', '')}
+                  {isAvailable && !isActive && <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />}
+                </Button>
+              )
+            })}
           </div>
           <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden md:block" />
           <Badge className="bg-emerald-500 text-white border-none px-3 py-1 font-black uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 flex items-center gap-2">

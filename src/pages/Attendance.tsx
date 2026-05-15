@@ -6,11 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Calendar, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, Loader2, UserX, Search, UserCheck, LogOut, FileDown, ShieldAlert } from "lucide-react"
 import { studentService } from "@/lib/studentService"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
 import { format, startOfDay, endOfDay } from "date-fns"
 import { id as localeId } from "date-fns/locale"
 import { Input } from "@/components/ui/input"
 import { calculateDistance, SCHOOL_ZONE } from "@/lib/geoUtils"
+import { isWindowActive, ATTENDANCE_WINDOWS, getAttendanceStatus } from "@/lib/attendanceConfig"
+import {
+  Trash2,
+  AlertTriangle,
+} from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -30,6 +36,9 @@ import {
 } from "@/components/ui/table"
 
 export default function Attendance() {
+  const { profile } = useAuth()
+  const isAdmin = profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah'
+  
   const [logs, setLogs] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -148,6 +157,13 @@ export default function Attendance() {
       toast.error("Akses Ditolak: Anda berada di luar area sekolah")
       return
     }
+
+    if (!isWindowActive(status, currentTime)) {
+      const window = ATTENDANCE_WINDOWS[status]
+      toast.error(`Waktu presensi ${window.label} belum aktif (Aktif: ${window.start} - ${window.end})`)
+      return
+    }
+
     setProcessingId(`${studentId}-${status}`)
     try {
       await studentService.markAttendance({
@@ -164,6 +180,22 @@ export default function Attendance() {
       await fetchData(false) // Refresh silent
     } catch (error: any) {
       toast.error("Gagal memproses absensi: " + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleDeleteLog = async (id: string, name: string) => {
+    if (!isAdmin) return
+    if (!confirm(`Hapus data absensi ${name}? Tindakan ini akan dicatat di audit log.`)) return
+    
+    setProcessingId(`delete-${id}`)
+    try {
+      await studentService.deleteAttendance(id, profile!.id)
+      toast.success("Data absensi berhasil dihapus")
+      await fetchData(false)
+    } catch (error: any) {
+      toast.error("Gagal menghapus: " + error.message)
     } finally {
       setProcessingId(null)
     }
@@ -281,13 +313,13 @@ export default function Attendance() {
                       <TableRow>
                         <TableHead className="font-bold">Nama Siswa</TableHead>
                         <TableHead className="font-bold">Status</TableHead>
-                        <TableHead className="font-bold text-right">Waktu</TableHead>
+                        <TableHead className="font-bold text-right pr-12">Waktu</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {logs.length > 0 ? (
                         logs.map((log) => (
-                          <TableRow key={log.id} className="hover:bg-slate-50/50">
+                          <TableRow key={log.id} className="hover:bg-slate-50/50 group">
                             <TableCell className="font-medium">
                               <div className="flex flex-col">
                                 <span>{log.students?.full_name || "Siswa Dihapus"}</span>
@@ -295,16 +327,34 @@ export default function Attendance() {
                               </div>
                             </TableCell>
                             <TableCell>
-                            <Badge className={
-                                log.status === 'hadir_pagi' ? 'bg-blue-100 text-blue-600' : 
-                                log.status === 'dzuhur' ? 'bg-amber-100 text-amber-600' : 
-                                'bg-emerald-100 text-emerald-600'
-                              }>
-                                {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge className={
+                                  log.status === 'hadir_pagi' ? 'bg-blue-100 text-blue-600' : 
+                                  log.status === 'dzuhur' ? 'bg-amber-100 text-amber-600' : 
+                                  'bg-emerald-100 text-emerald-600'
+                                }>
+                                  {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
+                                </Badge>
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                                  {getAttendanceStatus(log.status, new Date(log.created_at)) === 'On-Time' ? 'Tepat Waktu' : 'Terlambat'}
+                                </span>
+                              </div>
                             </TableCell>
-                            <TableCell className="text-right text-xs font-mono font-bold text-slate-500">
-                              {format(new Date(log.created_at), "dd/MM/yy HH:mm")}
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-3 text-xs font-mono font-bold text-slate-500">
+                                {format(new Date(log.created_at), "dd/MM/yy HH:mm")}
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteLog(log.id, log.students?.full_name)}
+                                    className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    disabled={processingId === `delete-${log.id}`}
+                                  >
+                                    {processingId === `delete-${log.id}` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -364,7 +414,11 @@ export default function Attendance() {
                 const isDzuhur = processingId === `${record.id}-dzuhur`;
                 const isPulang = processingId === `${record.id}-pulang`;
                 
-                return (
+                 const isPagiWindow = isWindowActive('hadir_pagi', currentTime);
+                 const isDzuhurWindow = isWindowActive('dzuhur', currentTime);
+                 const isPulangWindow = isWindowActive('pulang', currentTime);
+
+                 return (
                   <div key={record.id} className="p-4 md:p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors group">
                     <div className="flex items-center gap-4 flex-1">
                       <div className={`p-3 rounded-xl ${config.bg} shadow-sm group-hover:scale-110 transition-transform`}>
@@ -396,10 +450,12 @@ export default function Attendance() {
                           className={`h-10 px-3 rounded-xl font-bold transition-all border ${
                             record.hasPagi 
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                            : 'bg-blue-50/50 text-blue-600 hover:bg-blue-100 border-blue-100'
+                            : !isPagiWindow
+                            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                            : 'bg-blue-50/50 text-blue-600 hover:bg-blue-100 border-blue-100 shadow-sm'
                           }`}
                           onClick={() => handleMarkAttendance(record.id, 'hadir_pagi')}
-                          disabled={!!processingId || record.hasPagi || locationStatus !== 'allowed'}
+                          disabled={!!processingId || record.hasPagi || !isPagiWindow || locationStatus !== 'allowed'}
                         >
                           {isPagi ? <Loader2 size={14} className="animate-spin mr-2" /> : <UserCheck size={14} className="mr-2" />}
                           Pagi
@@ -410,12 +466,12 @@ export default function Attendance() {
                           className={`h-10 px-3 rounded-xl font-bold transition-all border ${
                             record.hasDzuhur 
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                            : !record.hasPagi
-                            ? 'bg-slate-50 text-slate-300 border-slate-100'
-                            : 'bg-amber-50/50 text-amber-600 hover:bg-amber-100 border-amber-100'
+                            : (!record.hasPagi || !isDzuhurWindow)
+                            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                            : 'bg-amber-50/50 text-amber-600 hover:bg-amber-100 border-amber-100 shadow-sm'
                           }`}
                           onClick={() => handleMarkAttendance(record.id, 'dzuhur')}
-                          disabled={!!processingId || record.hasDzuhur || !record.hasPagi || locationStatus !== 'allowed'}
+                          disabled={!!processingId || record.hasDzuhur || !record.hasPagi || !isDzuhurWindow || locationStatus !== 'allowed'}
                         >
                           {isDzuhur ? <Loader2 size={14} className="animate-spin mr-2" /> : <Clock size={14} className="mr-2" />}
                           Dzuhur
@@ -426,12 +482,12 @@ export default function Attendance() {
                           className={`h-10 px-3 rounded-xl font-bold transition-all border ${
                             record.hasPulang
                             ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                            : (!record.hasPagi || !record.hasDzuhur)
-                            ? 'bg-slate-50 text-slate-300 border-slate-100'
-                            : 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100 border-emerald-100'
+                            : (!record.hasPagi || !record.hasDzuhur || !isPulangWindow)
+                            ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                            : 'bg-emerald-50/50 text-emerald-600 hover:bg-emerald-100 border-emerald-100 shadow-sm'
                           }`}
                           onClick={() => handleMarkAttendance(record.id, 'pulang')}
-                          disabled={!!processingId || record.hasPulang || !record.hasPagi || !record.hasDzuhur || locationStatus !== 'allowed'}
+                          disabled={!!processingId || record.hasPulang || !record.hasPagi || !record.hasDzuhur || !isPulangWindow || locationStatus !== 'allowed'}
                         >
                           {isPulang ? <Loader2 size={14} className="animate-spin mr-2" /> : <LogOut size={14} className="mr-2" />}
                           Pulang

@@ -2,6 +2,7 @@ import { supabase, withTimeout } from "./supabase";
 import { Student, AttendanceLog } from "@/types";
 import { startOfDay, endOfDay, subDays, format, eachDayOfInterval } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { isWindowActive } from "./attendanceConfig";
 
 export const studentService = {
   async getAll() {
@@ -130,14 +131,21 @@ export const studentService = {
   },
 
   async markAttendance(log: Omit<AttendanceLog, 'id' | 'created_at'>) {
-    // 1. Get today's logs for this student
+    const now = new Date();
+    
+    // 1. Time Window Validation
+    if (!isWindowActive(log.status, now)) {
+      throw new Error(`Waktu presensi ${log.status.replace('_', ' ')} belum aktif atau sudah berakhir.`);
+    }
+
+    // 2. Get today's logs for this student
     const todayLogs = await this.getTodayLogs(log.student_id);
     
     const hasPagi = todayLogs.some(l => l.status === 'hadir_pagi');
     const hasDzuhur = todayLogs.some(l => l.status === 'dzuhur');
     const hasPulang = todayLogs.some(l => l.status === 'pulang');
 
-    // 2. Validate sequence
+    // 3. Validate sequence & duplicates
     if (log.status === 'hadir_pagi' && hasPagi) {
       throw new Error("Siswa sudah melakukan presensi Hadir Pagi hari ini.");
     }
@@ -161,6 +169,41 @@ export const studentService = {
     
     if (error) throw error;
     return data as AttendanceLog;
+  },
+
+  async deleteAttendance(id: string, adminId: string, reason: string = "Salah klik / Koreksi Admin") {
+    // 1. Get log details first for audit
+    const { data: log } = await (supabase as any)
+      .from('attendance_logs')
+      .select('*, students(full_name)')
+      .eq('id', id)
+      .single();
+
+    if (!log) throw new Error("Log tidak ditemukan");
+
+    // 2. Delete the log
+    const { error: deleteError } = await (supabase as any)
+      .from('attendance_logs')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) throw deleteError;
+
+    // 3. Create audit log
+    await (supabase as any)
+      .from('audit_logs')
+      .insert([{
+        action: 'DELETE_ATTENDANCE',
+        entity_type: 'attendance_logs',
+        entity_id: id,
+        admin_id: adminId,
+        details: {
+          reason,
+          student_name: log.students?.full_name,
+          deleted_status: log.status,
+          deleted_at: log.created_at
+        }
+      }]);
   },
 
   async getDashboardStats() {
@@ -269,5 +312,14 @@ export const studentService = {
       .getPublicUrl(filePath);
 
     return data.publicUrl;
+  },
+
+  async getServerTime() {
+    const { data, error } = await supabase.rpc('get_server_time');
+    if (error) {
+       // Fallback to local time if RPC fails or not defined
+       return new Date();
+    }
+    return new Date(data);
   }
 };

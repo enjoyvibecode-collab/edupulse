@@ -30,12 +30,37 @@ CREATE TABLE IF NOT EXISTS public.attendance_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 4. Create audit_logs table
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  details JSONB,
+  admin_id UUID REFERENCES public.profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- ENABLE ROW LEVEL SECURITY
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
+-- ... (skipping some existing policies for clarity in replacement) ...
+
+-- Audit Logs: Admins can view audit logs
+CREATE POLICY "Admins can view audit logs"
+ON public.audit_logs FOR SELECT
+USING (EXISTS (
+  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
+));
+
+-- Audit Logs: System can insert audit logs
+CREATE POLICY "System can insert audit logs"
+ON public.audit_logs FOR INSERT
+WITH CHECK (true);
 
 -- Profiles: Users can view their own profile
 CREATE POLICY "Users can view own profile" 
@@ -90,3 +115,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- HELPER: Get Server Time
+CREATE OR REPLACE FUNCTION public.get_server_time()
+RETURNS TIMESTAMP WITH TIME ZONE AS $$
+BEGIN
+  RETURN now();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
