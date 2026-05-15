@@ -82,14 +82,16 @@ export default function Students() {
   }, [])
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini?")) return
+    if (!confirm("Apakah Anda yakin ingin menghapus data siswa ini? Semu riwayat absensi siswa ini juga akan terhapus secara permanen.")) return
     
     try {
+      console.log("Attempting to delete student with ID:", id);
       await studentService.delete(id)
       toast.success("Siswa berhasil dihapus")
       fetchStudents()
     } catch (error: any) {
-      toast.error("Gagal menghapus siswa: " + error.message)
+      console.error("Delete Student Error:", error);
+      toast.error("Gagal menghapus siswa: " + (error.message || "Pastikan Anda memiliki akses Admin"));
     }
   }
 

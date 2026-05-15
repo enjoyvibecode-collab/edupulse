@@ -72,12 +72,21 @@ export const studentService = {
   },
 
   async delete(id: string) {
-    const { error } = await (supabase as any)
-      .from('students')
-      .delete()
-      .eq('id', id);
+    const res = await withTimeout(
+      (supabase as any)
+        .from('students')
+        .delete({ count: 'exact' })
+        .eq('id', id),
+      20000,
+      'Delete Student'
+    ) as any;
+    
+    const { error, count } = res;
     
     if (error) throw error;
+    if (count === 0) {
+      console.warn("No student record found to delete with ID:", id);
+    }
   },
 
   async saveFaceDescriptor(id: string, descriptor: number[]) {
