@@ -45,6 +45,7 @@ export default function Attendance() {
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   // Geolocation state
   const [locationStatus, setLocationStatus] = useState<"checking" | "allowed" | "denied" | "error">("checking")
@@ -105,6 +106,11 @@ export default function Attendance() {
     checkLocation()
     fetchData()
 
+    // Timer to update currentTime every minute
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 60000)
+
     const channel = supabase
       .channel('realtime_attendance')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
@@ -116,6 +122,7 @@ export default function Attendance() {
       .subscribe()
 
     return () => {
+      clearInterval(timer)
       supabase.removeChannel(channel)
     }
   }, [])

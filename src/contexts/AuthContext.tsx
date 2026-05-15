@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Wrap getSession in a timeout
         const { data: { session }, error } = await withTimeout(
           supabase.auth.getSession(),
-          30000,
+          60000,
           'Auth Session Fetch'
         ) as any
         
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', userId)
           .single(),
-        30000,
+        60000,
         'Fetch Profile'
       ) as any
 
