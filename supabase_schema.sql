@@ -140,19 +140,16 @@ CREATE POLICY "System can insert attendance audit logs"
 ON public.attendance_audit_logs FOR INSERT
 WITH CHECK (true);
 
--- Profiles: Users can view their own profile
-CREATE POLICY "Users can view own profile" 
+-- Profiles: Authenticated users can view profiles (Breaks infinite recursion)
+CREATE POLICY "Authenticated users can view profiles" 
 ON public.profiles FOR SELECT 
-USING (auth.uid() = id);
+TO authenticated
+USING (true);
 
--- Profiles: Staff can view all profiles
-CREATE POLICY "Staff can view all profiles"
-ON public.profiles FOR SELECT
-USING (public.is_staff());
-
--- Profiles: Platform owners can do everything
-CREATE POLICY "Platform owners have full access to profiles"
+-- Profiles: Platform owners can manage all profiles
+CREATE POLICY "Platform owners can manage profiles"
 ON public.profiles FOR ALL
+TO authenticated
 USING (public.is_platform_owner());
 
 -- Students: Authenticated users can view students
