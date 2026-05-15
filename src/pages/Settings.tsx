@@ -12,6 +12,8 @@ import {
   Save, 
   RefreshCw,
   Globe,
+  Trash2,
+  AlertTriangle,
   Lock
 } from "lucide-react"
 import { toast } from "sonner"
@@ -28,6 +30,7 @@ export default function Settings() {
   const [schoolName, setSchoolName] = useState("SMPN 1 Manonjaya")
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     fetchSettings()
@@ -77,6 +80,44 @@ export default function Settings() {
       toast.error("Gagal menyimpan pengaturan: " + error.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleResetData = async () => {
+    const confirmText = "HAPUS DATA PERMANEN"
+    const input = prompt(`PERINGATAN: Tindakan ini akan menghapus SELURUH data siswa dan riwayat absensi secara permanen. Ketik "${confirmText}" untuk mengonfirmasi:`)
+    
+    if (input !== confirmText) {
+      if (input !== null) {
+        toast.error("Konfirmasi tidak cocok. Penghapusan dibatalkan.")
+      }
+      return
+    }
+
+    setResetting(true)
+    try {
+      // 1. Delete all attendance logs first (though cascade handles it, we do it for clarity)
+      const { error: attError } = await supabase
+        .from('attendance_logs')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+      
+      if (attError) throw attError
+
+      // 2. Delete all students
+      const { error: studentError } = await supabase
+        .from('students')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+
+      if (studentError) throw studentError
+
+      toast.success("Seluruh data berhasil dihapus permanen!")
+    } catch (error: any) {
+      console.error('Error resetting data:', error.message)
+      toast.error("Gagal menghapus data: " + error.message)
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -183,6 +224,40 @@ export default function Settings() {
                     Setiap upaya absensi di luar radius {geoConfig.radius} meter akan ditolak oleh sistem secara otomatis.
                   </p>
                </div>
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone */}
+          <Card className="border-2 border-rose-100 shadow-sm rounded-3xl overflow-hidden bg-rose-50/30">
+            <CardHeader className="bg-rose-50 border-b border-rose-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-rose-500/10 rounded-xl text-rose-600">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <CardTitle className="text-lg text-rose-700">Zona Bahaya</CardTitle>
+                  <CardDescription className="text-rose-600/80">Tindakan kritis yang berdampak pada integritas data.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-rose-100 shadow-sm">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-800">Reset Semua Data Siswa & Absensi</p>
+                  <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+                    Menghapus seluruh daftar siswa dan semua riwayat log kehadiran yang ada dalam sistem. Tindakan ini tidak dapat dibatalkan.
+                  </p>
+                </div>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleResetData}
+                  disabled={resetting}
+                  className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 h-11 px-6 shrink-0 shadow-lg shadow-rose-200"
+                >
+                  {resetting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  {resetting ? "Memproses..." : "Hapus Semua"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
