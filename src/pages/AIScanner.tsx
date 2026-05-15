@@ -38,6 +38,7 @@ export default function AIScanner() {
   // Geolocation state
   const [locationStatus, setLocationStatus] = useState<"checking" | "allowed" | "denied" | "error">("checking")
   const [distanceFromSchool, setDistanceFromSchool] = useState<number | null>(null)
+  const [schoolZone, setSchoolZone] = useState(SCHOOL_ZONE)
   
   // Real-time recognition state
   const [scannerMode, setScannerMode] = useState<AttendanceType>('hadir_pagi')
@@ -76,8 +77,25 @@ export default function AIScanner() {
       try {
         setLoading(true)
         
+        // 0. Fetch Settings
+        let activeZone = schoolZone;
+        try {
+          const { data, error } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('id', 'geofence')
+            .single();
+          
+          if (data?.value) {
+            activeZone = data.value;
+            setSchoolZone(data.value);
+          }
+        } catch (err) {
+          console.warn("Using default geofence configuration");
+        }
+
         // 0. Geolocation Check
-        await checkLocation()
+        await checkLocation(activeZone)
         
         // Ensure AI Engine is ready
         try {
@@ -169,7 +187,7 @@ export default function AIScanner() {
     }
   }, [])
 
-  const checkLocation = async () => {
+  const checkLocation = async (zone = schoolZone) => {
     if (!navigator.geolocation) {
       toast.error("Browser Anda tidak mendukung geolokasi.")
       setLocationStatus("error")
@@ -183,13 +201,13 @@ export default function AIScanner() {
           const distance = calculateDistance(
             latitude,
             longitude,
-            SCHOOL_ZONE.latitude,
-            SCHOOL_ZONE.longitude
+            zone.latitude,
+            zone.longitude
           )
           
           setDistanceFromSchool(Math.round(distance))
           
-          if (distance <= SCHOOL_ZONE.radius) {
+          if (distance <= zone.radius) {
             setLocationStatus("allowed")
           } else {
             setLocationStatus("denied")

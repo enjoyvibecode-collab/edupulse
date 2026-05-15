@@ -88,6 +88,7 @@ export default function Attendance() {
   // Geolocation state
   const [locationStatus, setLocationStatus] = useState<"checking" | "allowed" | "denied" | "error">("checking")
   const [distanceFromSchool, setDistanceFromSchool] = useState<number | null>(null)
+  const [schoolZone, setSchoolZone] = useState(SCHOOL_ZONE)
 
   const handleExport = useCallback(() => {
     try {
@@ -141,7 +142,23 @@ export default function Attendance() {
   }
 
   useEffect(() => {
-    checkLocation()
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('id', 'geofence')
+          .single();
+        
+        if (data?.value) {
+          setSchoolZone(data.value);
+        }
+      } catch (err) {
+        console.warn("Using default geofence configuration");
+      }
+    };
+
+    fetchSettings();
     fetchData()
 
     // Timer to update currentTime every minute
@@ -165,6 +182,12 @@ export default function Attendance() {
     }
   }, [])
 
+  useEffect(() => {
+    if (schoolZone) {
+      checkLocation()
+    }
+  }, [schoolZone])
+
   const checkLocation = async () => {
     if (!navigator.geolocation) {
       setLocationStatus("error")
@@ -174,16 +197,19 @@ export default function Attendance() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords
+        console.log("Current location:", latitude, longitude);
+        console.log("Checking against school zone:", schoolZone);
+        
         const distance = calculateDistance(
           latitude,
           longitude,
-          SCHOOL_ZONE.latitude,
-          SCHOOL_ZONE.longitude
+          schoolZone.latitude,
+          schoolZone.longitude
         )
         
         setDistanceFromSchool(Math.round(distance))
         
-        if (distance <= SCHOOL_ZONE.radius) {
+        if (distance <= schoolZone.radius) {
           setLocationStatus("allowed")
         } else {
           setLocationStatus("denied")

@@ -57,14 +57,37 @@ CREATE TABLE IF NOT EXISTS public.attendance_audit_logs (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 6. Create settings table
+CREATE TABLE IF NOT EXISTS public.settings (
+  id TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- ENABLE ROW LEVEL SECURITY
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attendance_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
+-- ... (skipping some existing policies for clarity in replacement) ...
+
+-- Settings: Authenticated can view
+CREATE POLICY "Authenticated users can view settings"
+ON public.settings FOR SELECT
+TO authenticated
+USING (true);
+
+-- Settings: Admins can manage
+CREATE POLICY "Admins can manage settings"
+ON public.settings FOR ALL
+USING (EXISTS (
+  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
+));
+
 -- ... (skipping some existing policies for clarity in replacement) ...
 
 -- Audit Logs: Admins can view audit logs

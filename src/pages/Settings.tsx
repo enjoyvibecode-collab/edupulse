@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { SCHOOL_ZONE } from "@/lib/geoUtils"
+import { supabase } from "@/lib/supabase"
 
 export default function Settings() {
   const [geoConfig, setGeoConfig] = useState({
@@ -26,18 +27,66 @@ export default function Settings() {
   
   const [schoolName, setSchoolName] = useState("SMPN 1 Manonjaya")
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const handleSave = () => {
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  async function fetchSettings() {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+      
+      if (error) throw error
+
+      const geofence = data?.find(s => s.id === 'geofence')?.value
+      const profile = data?.find(s => s.id === 'school_profile')?.value
+
+      if (geofence) setGeoConfig(geofence)
+      if (profile?.schoolName) setSchoolName(profile.schoolName)
+    } catch (error: any) {
+      console.error('Error fetching settings:', error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
     setSaving(true)
-    // For now we simulate saving, or save to localStorage for persistence in this session
-    setTimeout(() => {
-      localStorage.setItem('school_settings', JSON.stringify({
-        schoolName,
-        geoConfig
-      }))
+    try {
+      // Save Geofence
+      const { error: geoError } = await supabase
+        .from('settings')
+        .upsert({ id: 'geofence', value: geoConfig })
+      
+      if (geoError) throw geoError
+
+      // Save School Profile
+      const { error: profileError } = await supabase
+        .from('settings')
+        .upsert({ id: 'school_profile', value: { schoolName } })
+      
+      if (profileError) throw profileError
+
+      toast.success("Pengaturan berhasil disimpan secara permanen!")
+    } catch (error: any) {
+      console.error('Error saving settings:', error.message)
+      toast.error("Gagal menyimpan pengaturan: " + error.message)
+    } finally {
       setSaving(false)
-      toast.success("Pengaturan berhasil disimpan!")
-    }, 1000)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <RefreshCw size={40} className="animate-spin text-primary" />
+        <p className="font-bold text-slate-500">Memuat pengaturan...</p>
+      </div>
+    )
   }
 
   return (
