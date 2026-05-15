@@ -56,4 +56,25 @@ export interface AttendanceLog {
   confidence: number
   captured_image?: string
   created_at: string
+  is_deleted?: boolean
+  deleted_at?: string
+  deleted_by?: string
+  edited_at?: string
+  correction_note?: string
+  students?: {
+    full_name: string
+  }
+}
+
+export interface AttendanceAuditLog {
+  id: string
+  attendance_id: string
+  action_type: 'CREATE' | 'UPDATE' | 'DELETE'
+  old_data: any
+  new_data: any
+  action_by: string
+  created_at: string
+  profiles?: {
+    full_name: string
+  }
 }

@@ -103,6 +103,7 @@ export const studentService = {
             nisn
           )
         `)
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false }),
       30000,
       'Get Attendance Logs'
@@ -123,6 +124,7 @@ export const studentService = {
       .from('attendance_logs')
       .select('*')
       .eq('student_id', studentId)
+      .eq('is_deleted', false)
       .gte('created_at', start)
       .lte('created_at', end);
     
@@ -171,39 +173,77 @@ export const studentService = {
     return data as AttendanceLog;
   },
 
-  async deleteAttendance(id: string, adminId: string, reason: string = "Salah klik / Koreksi Admin") {
-    // 1. Get log details first for audit
-    const { data: log } = await (supabase as any)
+  async softDeleteAttendance(id: string, adminId: string, reason: string = "Salah klik / Koreksi Admin") {
+    // 1. Get current data for audit
+    const { data: oldLog } = await (supabase as any)
       .from('attendance_logs')
-      .select('*, students(full_name)')
+      .select('*')
       .eq('id', id)
       .single();
 
-    if (!log) throw new Error("Log tidak ditemukan");
+    if (!oldLog) throw new Error("Log tidak ditemukan");
 
-    // 2. Delete the log
+    // 2. Soft delete the log
     const { error: deleteError } = await (supabase as any)
       .from('attendance_logs')
-      .delete()
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by: adminId,
+        correction_note: reason
+      })
       .eq('id', id);
 
     if (deleteError) throw deleteError;
 
-    // 3. Create audit log
+    // 3. Create detailed audit log
     await (supabase as any)
-      .from('audit_logs')
+      .from('attendance_audit_logs')
       .insert([{
-        action: 'DELETE_ATTENDANCE',
-        entity_type: 'attendance_logs',
-        entity_id: id,
-        admin_id: adminId,
-        details: {
-          reason,
-          student_name: log.students?.full_name,
-          deleted_status: log.status,
-          deleted_at: log.created_at
-        }
+        attendance_id: id,
+        action_type: 'DELETE',
+        old_data: oldLog,
+        new_data: { is_deleted: true, reason },
+        action_by: adminId
       }]);
+  },
+
+  async updateAttendance(id: string, updates: Partial<AttendanceLog>, adminId: string, reason: string) {
+    // 1. Get current data for audit
+    const { data: oldLog } = await (supabase as any)
+      .from('attendance_logs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!oldLog) throw new Error("Log tidak ditemukan");
+
+    // 2. Update the log
+    const { data: newLog, error: updateError } = await (supabase as any)
+      .from('attendance_logs')
+      .update({
+        ...updates,
+        edited_at: new Date().toISOString(),
+        correction_note: reason
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // 3. Create detailed audit log
+    await (supabase as any)
+      .from('attendance_audit_logs')
+      .insert([{
+        attendance_id: id,
+        action_type: 'UPDATE',
+        old_data: oldLog,
+        new_data: newLog,
+        action_by: adminId
+      }]);
+
+    return newLog;
   },
 
   async getDashboardStats() {
@@ -214,7 +254,7 @@ export const studentService = {
     const results = await withTimeout(
       Promise.all([
         (supabase as any).from('students').select('*'),
-        (supabase as any).from('attendance_logs').select('*').gte('created_at', start).lte('created_at', end)
+        (supabase as any).from('attendance_logs').select('*').eq('is_deleted', false).gte('created_at', start).lte('created_at', end)
       ]),
       30000,
       'Get Dashboard Stats'
@@ -272,6 +312,7 @@ export const studentService = {
     const { data: logs, error } = await (supabase as any)
       .from('attendance_logs')
       .select('created_at, student_id, status')
+      .eq('is_deleted', false)
       .gte('created_at', start);
 
     if (error) throw error;

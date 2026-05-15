@@ -16,7 +16,35 @@ import { isWindowActive, ATTENDANCE_WINDOWS, getAttendanceStatus } from "@/lib/a
 import {
   Trash2,
   AlertTriangle,
+  Edit3,
+  History,
+  MoreVertical,
+  Undo2,
+  MessageSquare
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
@@ -46,6 +74,16 @@ export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Correction State
+  const [selectedLog, setSelectedLog] = useState<any>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isLogHistoryOpen, setIsLogHistoryOpen] = useState(false)
+  const [correctionNote, setCorrectionNote] = useState("")
+  const [editStatus, setEditStatus] = useState<string>("")
+  const [editTime, setEditTime] = useState<string>("")
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [loadingAudit, setLoadingAudit] = useState(false)
 
   // Geolocation state
   const [locationStatus, setLocationStatus] = useState<"checking" | "allowed" | "denied" | "error">("checking")
@@ -194,17 +232,76 @@ export default function Attendance() {
 
   const handleDeleteLog = async (id: string, name: string) => {
     if (!isAdmin) return
-    if (!confirm(`Hapus data absensi ${name}? Tindakan ini akan dicatat di audit log.`)) return
+    const reason = prompt(`Alasan pembatalan absensi ${name}:`, "Salah klik")
+    if (reason === null) return 
     
     setProcessingId(`delete-${id}`)
     try {
-      await studentService.deleteAttendance(id, profile!.id)
-      toast.success("Data absensi berhasil dihapus")
+      await studentService.softDeleteAttendance(id, profile!.id, reason)
+      toast.success("Data absensi berhasil dibatalkan")
       await fetchData(false)
     } catch (error: any) {
-      toast.error("Gagal menghapus: " + error.message)
+      toast.error("Gagal membatalkan: " + error.message)
     } finally {
       setProcessingId(null)
+    }
+  }
+
+  const handleOpenEdit = (log: any) => {
+    setSelectedLog(log)
+    setEditStatus(log.status)
+    setEditTime(format(new Date(log.created_at), "yyyy-MM-dd'T'HH:mm"))
+    setCorrectionNote(log.correction_note || "")
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateLog = async () => {
+    if (!selectedLog || !isAdmin) return
+    if (!correctionNote.trim()) {
+      toast.error("Mohon isi alasan koreksi")
+      return
+    }
+
+    setProcessingId(`edit-${selectedLog.id}`)
+    try {
+      await studentService.updateAttendance(
+        selectedLog.id,
+        {
+          status: editStatus as any,
+          created_at: new Date(editTime).toISOString()
+        },
+        profile!.id,
+        correctionNote
+      )
+      toast.success("Data absensi berhasil diperbarui")
+      setIsEditDialogOpen(false)
+      await fetchData(false)
+    } catch (error: any) {
+      toast.error("Gagal memperbarui: " + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const fetchAuditLogs = async (attendanceId: string) => {
+    setLoadingAudit(true)
+    setIsLogHistoryOpen(true)
+    try {
+      const { data, error } = await (supabase as any)
+        .from('attendance_audit_logs')
+        .select(`
+          *,
+          profiles (full_name)
+        `)
+        .eq('attendance_id', attendanceId)
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      setAuditLogs(data || [])
+    } catch (error: any) {
+      toast.error("Gagal mengambil riwayat audit: " + error.message)
+    } finally {
+      setLoadingAudit(false)
     }
   }
 
@@ -335,31 +432,66 @@ export default function Attendance() {
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-1">
-                                <Badge className={
-                                  log.status === 'hadir_pagi' ? 'bg-blue-100 text-blue-600' : 
-                                  log.status === 'dzuhur' ? 'bg-amber-100 text-amber-600' : 
-                                  'bg-emerald-100 text-emerald-600'
-                                }>
-                                  {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
-                                </Badge>
+                                <div className="flex items-center gap-1.5">
+                                  <Badge className={
+                                    log.status === 'hadir_pagi' ? 'bg-blue-100 text-blue-600' : 
+                                    log.status === 'dzuhur' ? 'bg-amber-100 text-amber-600' : 
+                                    'bg-emerald-100 text-emerald-600'
+                                  }>
+                                    {log.status === 'hadir_pagi' ? 'Pagi' : log.status === 'dzuhur' ? 'Dzuhur' : 'Pulang'}
+                                  </Badge>
+                                  {log.edited_at && (
+                                    <Badge variant="outline" className="text-[10px] bg-indigo-50 text-indigo-600 border-indigo-100">
+                                      Dikoreksi
+                                    </Badge>
+                                  )}
+                                </div>
                                 <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
                                   {getAttendanceStatus(log.status, new Date(log.created_at)) === 'On-Time' ? 'Tepat Waktu' : 'Terlambat'}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-right">
-                              <div className="flex items-center justify-end gap-3 text-xs font-mono font-bold text-slate-500">
-                                {format(new Date(log.created_at), "dd/MM/yy HH:mm")}
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="flex flex-col items-end">
+                                  <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-tighter">
+                                    {format(new Date(log.created_at), "dd/MM/yy HH:mm")}
+                                  </span>
+                                  {log.correction_note && (
+                                    <span className="text-[10px] text-slate-400 italic">"{log.correction_note}"</span>
+                                  )}
+                                </div>
+                                
                                 {isAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteLog(log.id, log.students?.full_name)}
-                                    className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    disabled={processingId === `delete-${log.id}`}
-                                  >
-                                    {processingId === `delete-${log.id}` ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <MoreVertical size={14} className="text-slate-400" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl border-slate-100">
+                                      <DropdownMenuItem 
+                                        onClick={() => handleOpenEdit(log)}
+                                        className="rounded-lg gap-2 font-bold text-slate-600 cursor-pointer"
+                                      >
+                                        <Edit3 size={14} className="text-indigo-500" /> Koreksi Data
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => fetchAuditLogs(log.id)}
+                                        className="rounded-lg gap-2 font-bold text-slate-600 cursor-pointer"
+                                      >
+                                        <History size={14} className="text-amber-500" /> Lihat Riwayat
+                                      </DropdownMenuItem>
+                                      <div className="h-px bg-slate-100 my-1" />
+                                      <DropdownMenuItem 
+                                        onClick={() => handleDeleteLog(log.id, log.students?.full_name)}
+                                        className="rounded-lg gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
+                                        disabled={processingId === `delete-${log.id}`}
+                                      >
+                                        <Trash2 size={14} /> Batalkan Absen
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 )}
                               </div>
                             </TableCell>
@@ -522,6 +654,162 @@ export default function Attendance() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Correction Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Edit3 className="text-indigo-500" /> Koreksi Absensi
+            </DialogTitle>
+            <DialogDescription className="font-medium">
+              Update status atau waktu kehadiran {selectedLog?.students?.full_name}.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="status" className="font-bold text-slate-600">Jenis Kehadiran</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger className="rounded-xl h-11 border-slate-200">
+                  <SelectValue placeholder="Pilih status" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-100">
+                  <SelectItem value="hadir_pagi">Hadir Pagi</SelectItem>
+                  <SelectItem value="dzuhur">Sholat Dzuhur</SelectItem>
+                  <SelectItem value="pulang">Pulang Sekolah</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="time" className="font-bold text-slate-600">Waktu Absensi</Label>
+              <Input
+                id="time"
+                type="datetime-local"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                className="rounded-xl h-11 border-slate-200"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="reason" className="font-bold text-slate-600">Alasan Koreksi</Label>
+              <Textarea
+                id="reason"
+                placeholder="Contoh: Salah klik saat input manual..."
+                value={correctionNote}
+                onChange={(e) => setCorrectionNote(e.target.value)}
+                className="rounded-xl border-slate-200 min-h-[100px]"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsEditDialogOpen(false)} 
+              className="rounded-xl font-bold"
+              disabled={!!processingId}
+            >
+              Batal
+            </Button>
+            <Button 
+              onClick={handleUpdateLog} 
+              className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white min-w-[120px]"
+              disabled={!!processingId}
+            >
+              {processingId?.startsWith('edit-') ? <Loader2 size={16} className="animate-spin mr-2" /> : <CheckCircle2 size={16} className="mr-2" />}
+              Simpan Perubahan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Audit History Dialog */}
+      <Dialog open={isLogHistoryOpen} onOpenChange={setIsLogHistoryOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <History className="text-amber-500" /> Riwayat Audit Koreksi
+            </DialogTitle>
+            <DialogDescription className="font-medium">
+              Log perubahan data absensi untuk siswa ini.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 p-6 pt-0">
+            {loadingAudit ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 size={24} className="animate-spin text-amber-500" />
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Memuat Riwayat...</span>
+              </div>
+            ) : auditLogs.length > 0 ? (
+              <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
+                {auditLogs.map((audit) => (
+                  <div key={audit.id} className="relative pl-8">
+                    <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-white shadow-sm flex items-center justify-center ${
+                      audit.action_type === 'DELETE' ? 'bg-rose-500' : audit.action_type === 'UPDATE' ? 'bg-indigo-500' : 'bg-emerald-500'
+                    }`}>
+                      {audit.action_type === 'DELETE' ? <Trash2 size={10} className="text-white" /> : 
+                       audit.action_type === 'UPDATE' ? <Edit3 size={10} className="text-white" /> : 
+                       <CheckCircle2 size={10} className="text-white" />}
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-tight text-slate-900">
+                          {audit.action_type === 'DELETE' ? 'Pembatalan' : audit.action_type === 'UPDATE' ? 'Pembaruan' : 'Pencatatan'}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {format(new Date(audit.created_at), "dd MMM, HH:mm")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 font-medium">
+                        Oleh: <span className="text-primary font-bold">{audit.profiles?.full_name || "System"}</span>
+                      </p>
+                      
+                      {audit.new_data?.reason && (
+                        <div className="mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-start gap-2">
+                          <MessageSquare size={12} className="text-slate-400 mt-0.5 shrink-0" />
+                          <p className="text-[11px] text-slate-500 leading-relaxed italic">"{audit.new_data.reason || audit.old_data?.correction_note}"</p>
+                        </div>
+                      )}
+                      
+                      {audit.action_type === 'UPDATE' && (
+                        <div className="mt-2 text-[10px] grid grid-cols-2 gap-2 p-2 bg-indigo-50/30 rounded-lg border border-indigo-100/50">
+                          <div className="flex flex-col">
+                            <span className="text-slate-400 uppercase font-black tracking-widest text-[8px]">Sebelum</span>
+                            <span className="text-slate-600 font-bold">{audit.old_data?.status}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-indigo-400 uppercase font-black tracking-widest text-[8px]">Sesudah</span>
+                            <span className="text-indigo-600 font-bold">{audit.new_data?.status}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-12 h-12 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-3">
+                  <History size={20} />
+                </div>
+                <h4 className="text-sm font-bold text-slate-900">Belum ada riwayat</h4>
+                <p className="text-xs text-slate-500">Log perubahan akan muncul di sini jika ada koreksi.</p>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <div className="p-6 border-t bg-slate-50/50">
+            <Button onClick={() => setIsLogHistoryOpen(false)} className="w-full rounded-xl font-bold bg-white border-slate-200 text-slate-600 hover:bg-slate-100">
+              Tutup Panel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
