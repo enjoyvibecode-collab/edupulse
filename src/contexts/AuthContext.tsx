@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', userId)
           .single(),
-        15000, // 15s for profile is plenty
+        45000, // 45s for profile to handle cold starts/network lag
         'Profile Fetch'
       ) as any;
 

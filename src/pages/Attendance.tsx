@@ -491,9 +491,9 @@ export default function Attendance() {
                                 {isAdmin && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity">
+                                      <button type="button" className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg hover:bg-slate-100 outline-none">
                                         <MoreVertical size={14} className="text-slate-400" />
-                                      </Button>
+                                      </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl border-slate-100">
                                       <DropdownMenuItem 
@@ -666,9 +666,9 @@ export default function Attendance() {
                       {isAdmin && record.log_id && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 shrink-0">
+                            <button type="button" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 shrink-0 flex items-center justify-center outline-none">
                               <MoreVertical size={18} className="text-slate-400" />
-                            </Button>
+                            </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52 rounded-xl p-1 shadow-xl border-slate-100">
                             <DropdownMenuItem 

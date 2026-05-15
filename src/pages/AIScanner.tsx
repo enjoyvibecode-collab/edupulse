@@ -321,18 +321,29 @@ export default function AIScanner() {
     }
 
     try {
+      if (!videoRef.current || videoRef.current.readyState !== 4 || !canvasRef.current || !modelsLoaded) {
+        recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+        return
+      }
+
+      const video = videoRef.current
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+        return
+      }
+
       // Sensitivity settings: inputSize 160 is much faster for CPU fallback
       const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 })
       
       const detections = await faceapi
-        .detectAllFaces(videoRef.current, options)
+        .detectAllFaces(video, options)
         .withFaceLandmarks()
         .withFaceDescriptors()
 
       const canvas = canvasRef.current
       const displaySize = { 
-        width: videoRef.current.videoWidth, 
-        height: videoRef.current.videoHeight 
+        width: video.videoWidth, 
+        height: video.videoHeight 
       }
       
       if (displaySize.width > 0 && displaySize.height > 0) {
