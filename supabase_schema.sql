@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.students (
 CREATE TABLE IF NOT EXISTS public.attendance_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID REFERENCES public.students(id) ON DELETE CASCADE,
-  status TEXT NOT NULL CHECK (status IN ('arrival', 'departure')),
+  status TEXT NOT NULL CHECK (status IN ('hadir_pagi', 'dzuhur', 'pulang')),
   confidence FLOAT NOT NULL,
   captured_image TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
