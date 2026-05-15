@@ -24,8 +24,8 @@ export interface GeofenceConfig {
 
 // Default School Zone (Example: Near a central point)
 export const SCHOOL_ZONE: GeofenceConfig = {
-  latitude: -7.352834, 
-  longitude: 108.272274,
+  latitude: -7.349922, 
+  longitude: 108.308728,
   radius: 300 // 300 meters
 };
 
