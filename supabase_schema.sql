@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 -- HELPER FUNCTIONS FOR RLS (Prevents infinite recursion)
+-- These must be SECURITY DEFINER to bypass RLS when querying the profiles table
 CREATE OR REPLACE FUNCTION public.is_platform_owner()
 RETURNS BOOLEAN AS $$
 BEGIN
@@ -17,7 +18,7 @@ BEGIN
     WHERE id = auth.uid() AND role = 'platform_owner'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.is_admin_or_owner()
 RETURNS BOOLEAN AS $$
@@ -27,7 +28,17 @@ BEGIN
     WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.is_staff()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah', 'guru')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 2. Create students table
 CREATE TABLE IF NOT EXISTS public.students (
@@ -122,9 +133,7 @@ WITH CHECK (true);
 -- Attendance Audit Logs: Admins can view
 CREATE POLICY "Admins can view attendance audit logs"
 ON public.attendance_audit_logs FOR SELECT
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah', 'guru')
-));
+USING (public.is_staff());
 
 -- Attendance Audit Logs: System can insert
 CREATE POLICY "System can insert attendance audit logs"
@@ -135,6 +144,11 @@ WITH CHECK (true);
 CREATE POLICY "Users can view own profile" 
 ON public.profiles FOR SELECT 
 USING (auth.uid() = id);
+
+-- Profiles: Staff can view all profiles
+CREATE POLICY "Staff can view all profiles"
+ON public.profiles FOR SELECT
+USING (public.is_staff());
 
 -- Profiles: Platform owners can do everything
 CREATE POLICY "Platform owners have full access to profiles"
@@ -161,9 +175,7 @@ USING (true);
 -- Attendance: Admins and Gurus can manage logs
 CREATE POLICY "Admins and Gurus can manage logs"
 ON public.attendance_logs FOR ALL
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah', 'guru')
-));
+USING (public.is_staff());
 
 -- PROFILE TRIGGER ON AUTH SIGNUP
 -- Automatically create a profile when a new user signs up (Default to 'guru' or 'orang_tua')
