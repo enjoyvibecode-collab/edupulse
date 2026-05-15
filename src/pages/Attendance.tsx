@@ -65,7 +65,7 @@ import {
 
 export default function Attendance() {
   const { profile } = useAuth()
-  const isAdmin = profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah'
+  const isAdmin = profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah' || profile?.role === 'guru'
   
   const [logs, setLogs] = useState<any[]>([])
   const [students, setStudents] = useState<any[]>([])
@@ -465,7 +465,7 @@ export default function Attendance() {
                                 {isAdmin && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity">
                                         <MoreVertical size={14} className="text-slate-400" />
                                       </Button>
                                     </DropdownMenuTrigger>
@@ -636,6 +636,41 @@ export default function Attendance() {
                       <Badge className={`${config.bg} ${config.color} border-none font-black uppercase text-[10px] tracking-widest px-4 py-2.5 rounded-xl shadow-sm min-w-[110px] justify-center`}>
                         {config.label}
                       </Badge>
+
+                      {isAdmin && record.log_id && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 shrink-0">
+                              <MoreVertical size={18} className="text-slate-400" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52 rounded-xl p-1 shadow-xl border-slate-100">
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                // Find the full log object from the logs state
+                                const fullLog = logs.find(l => l.id === record.log_id);
+                                if (fullLog) handleOpenEdit(fullLog);
+                              }}
+                              className="rounded-lg gap-2 font-bold text-slate-600 cursor-pointer h-10"
+                            >
+                              <Edit3 size={16} className="text-indigo-500" /> Koreksi Terakhir
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => fetchAuditLogs(record.log_id)}
+                              className="rounded-lg gap-2 font-bold text-slate-600 cursor-pointer h-10"
+                            >
+                              <History size={16} className="text-amber-500" /> Riwayat Audit
+                            </DropdownMenuItem>
+                            <div className="h-px bg-slate-100 my-1" />
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteLog(record.log_id, record.full_name)}
+                              className="rounded-lg gap-2 font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer h-10"
+                            >
+                              <Trash2 size={16} /> Batalkan Absen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
                 )
