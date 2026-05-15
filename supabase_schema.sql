@@ -8,6 +8,27 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- HELPER FUNCTIONS FOR RLS (Prevents infinite recursion)
+CREATE OR REPLACE FUNCTION public.is_platform_owner()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'platform_owner'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_admin_or_owner()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 2. Create students table
 CREATE TABLE IF NOT EXISTS public.students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,18 +105,14 @@ USING (true);
 -- Settings: Admins can manage
 CREATE POLICY "Admins can manage settings"
 ON public.settings FOR ALL
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
-));
+USING (public.is_admin_or_owner());
 
 -- ... (skipping some existing policies for clarity in replacement) ...
 
 -- Audit Logs: Admins can view audit logs
 CREATE POLICY "Admins can view audit logs"
 ON public.audit_logs FOR SELECT
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
-));
+USING (public.is_admin_or_owner());
 
 -- Audit Logs: System can insert audit logs
 CREATE POLICY "System can insert audit logs"
@@ -122,9 +139,7 @@ USING (auth.uid() = id);
 -- Profiles: Platform owners can do everything
 CREATE POLICY "Platform owners have full access to profiles"
 ON public.profiles FOR ALL
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'platform_owner'
-));
+USING (public.is_platform_owner());
 
 -- Students: Authenticated users can view students
 CREATE POLICY "Authenticated users can view students"
@@ -135,9 +150,7 @@ USING (true);
 -- Students: Admins can modify students
 CREATE POLICY "Admins can modify students"
 ON public.students FOR ALL
-USING (EXISTS (
-  SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('platform_owner', 'admin_sekolah')
-));
+USING (public.is_admin_or_owner());
 
 -- Attendance: Authenticated users can view logs
 CREATE POLICY "Authenticated users can view attendance logs"
