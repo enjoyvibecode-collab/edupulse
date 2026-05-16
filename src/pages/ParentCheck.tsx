@@ -51,14 +51,20 @@ export default function ParentCheck() {
     setLoading(true)
     setHasSearched(false)
     try {
-      // 1. Find student by NISN
+      // 1. Find student by NISN using maybeSingle to avoid 406 errors if not found
       const { data: studentData, error: studentError } = await supabase
         .from('students')
         .select('*')
         .eq('nisn', nisn.trim())
-        .single()
+        .maybeSingle()
 
-      if (studentError || !studentData) {
+      if (studentError) {
+        console.error('Search query error:', studentError)
+        toast.error("Gagal terhubung ke database. Silakan coba lagi.")
+        return
+      }
+
+      if (!studentData) {
         setStudent(null)
         setLogs([])
         toast.error("Siswa tidak ditemukan. Periksa kembali NISN.")
