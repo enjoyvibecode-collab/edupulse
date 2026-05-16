@@ -7,10 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { 
-  Download, 
   Printer, 
   Search, 
-  Filter, 
   Loader2, 
   Grid, 
   List as ListIcon,
@@ -60,49 +58,92 @@ export default function BulkQRGenerator() {
   }, [students])
 
   const downloadAllAsExcel = () => {
-    const data = filteredStudents.map(s => ({
-      'NISN': s.nisn,
-      'Nama Lengkap': s.full_name,
-      'Kelas': s.class_name,
-      'QR Data': s.nisn // Optional: explicitly state what data is in the QR
-    }))
+    // Generate technical instruction for the user
+    const worksheetData = [
+      ["DATA QR CODE SISWA - SMP NEGERI 1 MANONJAYA"],
+      [`Tanggal Ekspor: ${new Date().toLocaleString('id-ID')}`],
+      [""], // Empty row
+      ["NO", "NISN/ID", "NAMA LENGKAP", "KELAS", "STATUS QR"]
+    ]
+
+    filteredStudents.forEach((s, index) => {
+      worksheetData.push([
+        (index + 1).toString(),
+        s.nisn,
+        s.full_name.toUpperCase(),
+        s.class_name,
+        "READY TO SCAN"
+      ])
+    })
     
-    const worksheet = XLSX.utils.json_to_sheet(data)
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+    
+    // Set column widths for professional look
+    worksheet['!cols'] = [
+      { wch: 5 },  // No
+      { wch: 15 }, // NISN
+      { wch: 40 }, // Nama
+      { wch: 15 }, // Kelas
+      { wch: 15 }  // Status
+    ]
+
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data_QR_Siswa")
-    XLSX.writeFile(workbook, `Data_QR_Siswa_${new Date().toISOString().split('T')[0]}.xlsx`)
-    toast.success("Data berhasil diekspor ke Excel")
+    
+    // Download
+    const fileName = `REKAP_QR_SISWA_${selectedClass === 'all' ? 'SEMUA_KELAS' : 'KELAS_' + selectedClass}_${new Date().getTime()}.xlsx`
+    XLSX.writeFile(workbook, fileName)
+    
+    toast.success("Data Excel berhasil di-generate secara profesional")
   }
 
   const handlePrint = () => {
-    window.print()
+    toast.info("Menyiapkan dokumen untuk dicetak...")
+    setTimeout(() => {
+      window.print()
+    }, 500)
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10 min-h-screen bg-slate-50/30">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          nav, header, aside, .no-print {
-            display: none !important;
+          /* Hide everything by default */
+          body * {
+            visibility: hidden !important;
           }
+          /* Only show the print container and its children */
+          .print-container, .print-container * {
+            visibility: visible !important;
+          }
+          /* Position the print container at the top */
           .print-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
             gap: 15px !important;
-            padding: 0 !important;
-          }
-          body {
+            padding: 10mm !important;
             background: white !important;
           }
+          /* Card specific print styles */
           .qr-card {
-            border: 1px solid #eee !important;
-            break-inside: avoid;
-            page-break-inside: avoid;
+            border: 1px solid #ddd !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            margin-bottom: 5px !important;
+            padding: 15px !important;
+            border-radius: 8px !important;
+          }
+          .no-print {
+            display: none !important;
           }
         }
       `}} />
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print px-4 md:px-0">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 mb-1">
             <Button variant="ghost" size="sm" asChild className="-ml-2 h-8">
@@ -206,12 +247,7 @@ export default function BulkQRGenerator() {
   )
 }
 
-interface QRCardProps {
-  student: Student;
-  mode: "grid" | "list";
-}
-
-const QRCard: React.FC<QRCardProps> = ({ student, mode }) => {
+function QRCard({ student, mode }: { student: Student, mode: "grid" | "list", key?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
