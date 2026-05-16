@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
 
 export default function PendingVerification() {
-  const { profile, signOut, loading } = useAuth()
+  const { profile, signOut, loading, fetchProfile } = useAuth()
+  const [isChecking, setIsChecking] = React.useState(false)
   const navigate = useNavigate()
 
   // Auto-redirect if verified
@@ -15,6 +16,16 @@ export default function PendingVerification() {
       navigate('/', { replace: true })
     }
   }, [profile, loading, navigate])
+
+  const handleCheckStatus = async () => {
+    if (!profile?.id) return
+    setIsChecking(true)
+    try {
+      await fetchProfile(profile.id)
+    } finally {
+      setIsChecking(false)
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -54,10 +65,11 @@ export default function PendingVerification() {
 
         <div className="pt-2">
           <Button 
-            onClick={() => window.location.reload()}
-            className="w-full rounded-2xl h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-100"
+            onClick={handleCheckStatus}
+            disabled={isChecking || loading}
+            className="w-full rounded-2xl h-12 bg-indigo-600 hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-100 disabled:opacity-70"
           >
-            Cek Status Sekarang
+            {isChecking ? 'Mengecek...' : 'Cek Status Sekarang'}
           </Button>
           <Button 
             onClick={handleSignOut}

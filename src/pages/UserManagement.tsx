@@ -200,10 +200,8 @@ export default function UserManagement() {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-xl hover:bg-white hover:shadow-sm">
-                              <MoreVertical size={20} className="text-slate-400 group-hover:text-indigo-600" />
-                            </Button>
+                          <DropdownMenuTrigger className="rounded-xl size-9 inline-flex items-center justify-center hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200 group/trigger outline-none cursor-pointer">
+                            <MoreVertical size={20} className="text-slate-400 group-hover/trigger:text-indigo-600" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-none shadow-2xl">
                             <div className="px-2 py-1.5 mb-1">

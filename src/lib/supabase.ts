@@ -62,8 +62,8 @@ export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: numbe
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
-      const errorMsg = `${context} timed out after ${timeoutMs}ms. Periksa koneksi internet Anda atau pastikan URL/Key Supabase sudah benar.`;
-      console.warn('TIMEOUT WARNING:', errorMsg);
+      const errorMsg = `${context} timeout setelah ${timeoutMs}ms. Koneksi database sedang lambat, silakan refresh halaman atau tunggu sebentar.`;
+      console.warn('TIMEOUT:', errorMsg);
       reject(new Error(errorMsg));
     }, timeoutMs);
   });
