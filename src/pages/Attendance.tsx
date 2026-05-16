@@ -144,14 +144,13 @@ export default function Attendance() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data, error } = await supabase
-          .from('settings')
+        const { data } = await (supabase.from('settings') as any)
           .select('value')
           .eq('id', 'geofence')
           .single();
         
-        if (data?.value) {
-          setSchoolZone(data.value);
+        if (data && data.value) {
+          setSchoolZone(data.value as any);
         }
       } catch (err) {
         console.warn("Using default geofence configuration");

@@ -2,5 +2,5 @@
   "name": "EduPulse Smart Attendance",
   "description": "A modern school attendance system with real-time tracking, student management, and professional dashboard analytics.",
   "requestFramePermissions": ["camera", "geolocation"],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

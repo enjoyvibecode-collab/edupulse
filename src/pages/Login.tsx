@@ -48,14 +48,16 @@ export default function Login() {
         }
       } else {
         // Handle Login
-        const { error: authError } = await withTimeout(
+        const loginRes = await withTimeout(
           supabase.auth.signInWithPassword({
             email,
             password,
           }),
           30000,
           'Autentikasi'
-        );
+        ) as any;
+        
+        const authError = loginRes?.error;
 
         if (authError) throw authError
         navigate(from, { replace: true })

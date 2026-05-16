@@ -58,7 +58,7 @@ export default function Settings() {
 
       const { data: insertedStudents, error: studentError } = await supabase
         .from('students')
-        .insert(mockStudents)
+        .insert(mockStudents as any)
         .select()
 
       if (studentError) throw studentError
@@ -67,14 +67,14 @@ export default function Settings() {
       if (insertedStudents && insertedStudents.length > 0) {
         const today = new Date()
         const mockLogs = [
-          { student_id: insertedStudents[0].id, status: 'hadir_pagi', confidence: 0.98, created_at: today.toISOString() },
-          { student_id: insertedStudents[1].id, status: 'hadir_pagi', confidence: 0.95, created_at: today.toISOString() },
-          { student_id: insertedStudents[0].id, status: 'dzuhur', confidence: 0.92, created_at: new Date(today.getTime() + 4 * 3600000).toISOString() },
+          { student_id: (insertedStudents[0] as any).id, status: 'hadir_pagi', confidence: 0.98, created_at: today.toISOString() },
+          { student_id: (insertedStudents[1] as any).id, status: 'hadir_pagi', confidence: 0.95, created_at: today.toISOString() },
+          { student_id: (insertedStudents[0] as any).id, status: 'dzuhur', confidence: 0.92, created_at: new Date(today.getTime() + 4 * 3600000).toISOString() },
         ]
 
         const { error: logError } = await supabase
           .from('attendance_logs')
-          .insert(mockLogs)
+          .insert(mockLogs as any)
 
         if (logError) throw logError
       }
@@ -97,8 +97,8 @@ export default function Settings() {
       
       if (error) throw error
 
-      const geofence = data?.find(s => s.id === 'geofence')?.value
-      const profile = data?.find(s => s.id === 'school_profile')?.value
+      const geofence = (data as any[])?.find(s => s.id === 'geofence')?.value
+      const profile = (data as any[])?.find(s => s.id === 'school_profile')?.value
 
       if (geofence) setGeoConfig(geofence)
       if (profile?.schoolName) setSchoolName(profile.schoolName)
@@ -115,14 +115,14 @@ export default function Settings() {
       // Save Geofence
       const { error: geoError } = await supabase
         .from('settings')
-        .upsert({ id: 'geofence', value: geoConfig })
+        .upsert({ id: 'geofence', value: geoConfig } as any)
       
       if (geoError) throw geoError
 
       // Save School Profile
       const { error: profileError } = await supabase
         .from('settings')
-        .upsert({ id: 'school_profile', value: { schoolName } })
+        .upsert({ id: 'school_profile', value: { schoolName } } as any)
       
       if (profileError) throw profileError
 

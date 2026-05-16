@@ -26,6 +26,16 @@ export interface Database {
         Insert: Omit<AttendanceLog, 'id' | 'created_at'>
         Update: Partial<Omit<AttendanceLog, 'id' | 'created_at'>>
       }
+      settings: {
+        Row: { id: string; value: any; updated_at: string }
+        Insert: { id: string; value: any; updated_at?: string }
+        Update: { value?: any; updated_at?: string }
+      }
+      attendance_audit_logs: {
+        Row: AttendanceAuditLog
+        Insert: Omit<AttendanceAuditLog, 'id' | 'created_at'>
+        Update: Partial<Omit<AttendanceAuditLog, 'id' | 'created_at'>>
+      }
     }
   }
 }

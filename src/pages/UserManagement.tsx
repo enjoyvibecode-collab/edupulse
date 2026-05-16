@@ -30,17 +30,13 @@ import {
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 
-interface Profile {
-  id: string
-  full_name: string
-  role: 'platform_owner' | 'admin_sekolah' | 'guru' | 'orang_tua'
-  is_verified: boolean
-  created_at: string
-}
+import { Profile, UserRole } from "@/types/index"
+
+interface UserProfile extends Profile {}
 
 export default function UserManagement() {
   const { profile: currentUserProfile } = useAuth()
-  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
 
@@ -58,7 +54,7 @@ export default function UserManagement() {
         .order('role', { ascending: true })
 
       if (error) throw error
-      setProfiles(data || [])
+      setProfiles((data || []) as UserProfile[])
     } catch (error: any) {
       console.error('Error fetching profiles:', error)
       toast.error("Gagal memuat data pengguna.")
@@ -67,7 +63,7 @@ export default function UserManagement() {
     }
   }
 
-  const updateRole = async (userId: string, newRole: string) => {
+  const updateRole = async (userId: string, newRole: UserRole) => {
     try {
       const { error } = await supabase
         .from('profiles')

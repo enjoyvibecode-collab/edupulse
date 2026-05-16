@@ -84,15 +84,14 @@ export default function AIScanner() {
         // 0. Fetch Settings
         let activeZone = schoolZone;
         try {
-          const { data, error } = await supabase
-            .from('settings')
+          const { data } = await (supabase.from('settings') as any)
             .select('value')
             .eq('id', 'geofence')
             .single();
           
-          if (data?.value) {
-            activeZone = data.value;
-            setSchoolZone(data.value);
+          if (data && data.value) {
+            activeZone = data.value as any;
+            setSchoolZone(data.value as any);
           }
         } catch (err) {
           console.warn("Using default geofence configuration");

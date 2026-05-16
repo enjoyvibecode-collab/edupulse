@@ -42,8 +42,8 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: { 'x-application-name': 'edupulse' },
-      fetch: (...args) => {
-        return fetch(...args).catch(err => {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        return fetch(input, init).catch(err => {
           if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
             console.error('CORTEX NETWORK ERROR: Likely CORS or Connectivity issue.', err);
             throw new Error('Gagal terhubung ke server (Failed to fetch). Periksa koneksi internet Anda atau pastikan URL Supabase dapat diakses.');
@@ -58,7 +58,7 @@ export const supabase = createClient<Database>(
 /**
  * Helper to wrap promises with a timeout
  */
-export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 120000, context: string = 'Operation'): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 30000, context: string = 'Operation'): Promise<T> {
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {

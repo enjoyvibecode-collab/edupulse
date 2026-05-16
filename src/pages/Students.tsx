@@ -510,116 +510,100 @@ export default function Students() {
         <div className="fixed top-[-9999px] left-[-9999px]">
           <div 
             ref={cardTemplateRef}
-            className="relative w-[360px] h-[580px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center"
-            style={{ 
-              fontFamily: 'Inter, sans-serif',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' 
-            }}
+            className="relative w-[320px] h-[510px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center shadow-2xl"
+            style={{ fontFamily: 'sans-serif' }}
           >
-            {/* 1. Background Pattern (Subtle Geometric Luxury) */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-              <div className="absolute top-0 right-0 w-[400px] h-[400px] border-[1px] border-[#D4A373] rotate-45 translate-x-1/2 -translate-y-1/2" />
-              <div className="absolute top-0 right-0 w-[350px] h-[350px] border-[1px] border-[#D4A373] rotate-45 translate-x-1/2 -translate-y-1/2" />
-              <div className="absolute top-0 right-0 w-[300px] h-[300px] border-[1px] border-[#D4A373] rotate-45 translate-x-1/2 -translate-y-1/2" />
-            </div>
+            {/* Elegant Background Accents */}
+            <div className="absolute top-0 right-0 w-40 h-40 border-[0.5px] border-[#D4A373]/20 rotate-45 translate-x-1/2 -translate-y-1/2" />
+            <div className="absolute top-0 right-0 w-32 h-32 border-[0.5px] border-[#D4A373]/10 rotate-45 translate-x-1/2 -translate-y-1/2" />
             
-            {/* 2. Top Banner / Type */}
-            <div className="mt-10 mb-6 z-10">
-              <span className="text-[#D4A373] text-[10px] font-black uppercase tracking-[0.4em] opacity-60">
-                Official Identity Card
-              </span>
+            {/* Subtle V-Pattern at bottom */}
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full h-[0.5px] bg-[#D4A373]/20 scale-x-75" />
+            
+            {/* Header / Identity Logo (Top Center) */}
+            <div className="mt-8 mb-4">
+              <div className="flex flex-col items-center">
+                <span className="text-[#D4A373] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Identity Card</span>
+              </div>
             </div>
 
-            {/* 3. Photo Section (Layered Structure) */}
-            <div className="relative mt-2 mb-10 w-44 h-44 flex items-center justify-center">
-              {/* Outer Golden Glow (Bottom Layer) */}
-              <div className="absolute inset-0 bg-[#D4A373]/15 rounded-full blur-xl scale-110" />
+            {/* Photo Section with Frame Overlay */}
+            <div className="relative mt-2 mb-8 group">
+              {/* Outer Golden Glow */}
+              <div className="absolute inset-0 -m-1 rounded-full bg-[#D4A373]/20 blur-sm" />
               
-              {/* Photo Container (Middle Layer) */}
-              <div className="relative w-[156px] h-[156px] rounded-full overflow-hidden bg-slate-800 z-10 border-[6px] border-[#1F2554]"
-                   style={{ boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}>
-                {exportingStudent.photo_url ? (
-                  <img 
-                    src={exportingStudent.photo_url} 
-                    className="w-full h-full object-cover"
-                    crossOrigin="anonymous"
-                    alt="Student"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-700">
-                    <span className="text-white/20 text-4xl font-black">{exportingStudent.full_name.charAt(0)}</span>
-                  </div>
-                )}
+              <div className="relative h-40 w-40 rounded-full border-2 border-[#D4A373] p-1.5 overflow-hidden bg-[#1F2554] shadow-xl">
+                 {/* Student Photo */}
+                 <div className="w-full h-full rounded-full overflow-hidden">
+                    {exportingStudent.photo_url ? (
+                      <img 
+                        src={exportingStudent.photo_url} 
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                         <Loader2 className="w-8 h-8 text-slate-600 animate-spin" />
+                      </div>
+                    )}
+                 </div>
+                 
+                 {/* Decorative Frame Overlay (Gradient ring) */}
+                 <div className="absolute inset-0 rounded-full border-[8px] border-[#1F2554] mix-blend-normal opacity-100" />
+                 <div className="absolute inset-0 rounded-full border-[2px] border-[#D4A373]/30" />
               </div>
-
-              {/* Decorative Frame Overlay (Top Layer) */}
-              <div className="absolute inset-0 z-20 pointer-events-none">
-                {/* Thin Golden Ring */}
-                <div className="absolute inset-0 rounded-full border-[1.5px] border-[#D4A373]/80" />
-                
-                {/* Frame Accents (Fintech Look) */}
-                <div className="absolute -top-3 -left-3 w-12 h-12 border-t-[2.5px] border-l-[2.5px] border-[#D4A373] rounded-tl-[32px]" />
-                <div className="absolute -bottom-3 -right-3 w-12 h-12 border-b-[2.5px] border-r-[2.5px] border-[#D4A373] rounded-br-[32px]" />
-              </div>
+              
+              {/* Frame Accent Corners */}
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-[0.5px] border-l-[0.5px] border-[#D4A373]/40 rounded-tl-xl" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-[0.5px] border-r-[0.5px] border-[#D4A373]/40 rounded-br-xl" />
             </div>
 
-            {/* 4. Student Name (Large & Clear) */}
-            <div className="text-center px-8 z-10">
-              <h2 className="text-2xl font-black text-white leading-tight uppercase tracking-tight mb-2 drop-shadow-lg">
+            {/* Student Info */}
+            <div className="text-center px-6 max-w-full">
+              <h2 className="text-2xl font-black text-white leading-tight uppercase tracking-tight mb-1 drop-shadow-md truncate">
                 {exportingStudent.full_name}
               </h2>
-              {/* School Name (Smaller in Gold) */}
-              <p className="text-[#D4A373] text-[12px] font-extrabold tracking-[0.1em] uppercase">
-                SMP NEGERI 1 MANONJAYA
-              </p>
+              <div className="flex flex-col items-center">
+                <p className="text-[#D4A373] text-[11px] font-bold tracking-[0.15em] mb-4">
+                  {exportingStudent.class_name ? `SMP NEGERI 1 MANONJAYA - ${exportingStudent.class_name}` : "SMP NEGERI 1 MANONJAYA"}
+                </p>
+              </div>
             </div>
 
-            {/* 5. Elegant Thin Divider */}
-            <div className="w-[120px] h-[1px] bg-[#D4A373]/50 my-8 z-10" />
+            {/* Premium Divider */}
+            <div className="w-4/5 h-[0.5px] bg-gradient-to-r from-transparent via-[#D4A373]/40 to-transparent my-6" />
 
-            {/* 6. Footer Layout */}
-            <div className="absolute bottom-12 left-0 w-full px-10 flex items-center justify-between z-10">
-              {/* QR Code Section (Bottom Left) */}
-              <div className="flex flex-col items-start gap-2">
-                <div className="bg-white p-[3px] rounded-xl border border-[#D4A373]/30"
-                     style={{ boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)' }}>
-                  <div className="rounded-lg overflow-hidden flex">
-                    <canvas 
-                      ref={(el) => {
-                        if (el && exportingStudent) {
-                          QRCode.toCanvas(el, exportingStudent.nisn, {
-                            width: 72,
-                            margin: 1,
-                            color: {
-                              dark: '#1F2554',
-                              light: '#FFFFFF'
-                            }
-                          });
+            {/* Footer Section */}
+            <div className="absolute bottom-8 left-0 w-full px-8 flex items-end justify-between">
+              {/* QR Code */}
+              <div className="bg-white p-1 rounded-lg shadow-lg">
+                <canvas 
+                  ref={(el) => {
+                    if (el && exportingStudent) {
+                      QRCode.toCanvas(el, exportingStudent.nisn, {
+                        width: 70,
+                        margin: 1,
+                        color: {
+                          dark: '#1F2554',
+                          light: '#FFFFFF'
                         }
-                      }} 
-                      className="w-[72px] h-[72px]"
-                    />
-                  </div>
-                </div>
-                <span className="text-[#D4A373] text-[9px] font-mono font-bold tracking-widest opacity-60 ml-1">
-                  NISN: {exportingStudent.nisn}
-                </span>
+                      });
+                    }
+                  }} 
+                  className="w-16 h-16"
+                />
               </div>
 
-              {/* School Branding (Bottom Right) */}
+              {/* Branding Bottom Right */}
               <div className="text-right flex flex-col items-end">
-                <span className="text-white text-2xl font-black italic tracking-tighter leading-none mb-1">
-                  NESATMA
-                </span>
-                <span className="text-[#D4A373]/80 text-[9px] font-bold uppercase tracking-[0.2em] mb-2 leading-none">
-                  STUDENT ACCESS ID
-                </span>
-                <div className="w-10 h-[3px] bg-[#D4A373] rounded-full" />
+                <span className="text-white text-base font-black italic tracking-tighter">NESATMA</span>
+                <span className="text-[#D4A373] text-[8px] font-bold uppercase tracking-[0.2em]">Student Access ID</span>
+                <div className="mt-1 w-8 h-[2px] bg-[#D4A373]" />
               </div>
             </div>
 
-            {/* 7. Premium Bottom Accent */}
-            <div className="absolute bottom-0 left-0 w-full h-2 bg-[#D4A373]" />
+            {/* Gold Bottom Detail */}
+            <div className="absolute bottom-0 left-0 w-full h-1.5 bg-[#D4A373]" />
           </div>
         </div>
       )}

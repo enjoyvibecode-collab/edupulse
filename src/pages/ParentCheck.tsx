@@ -77,10 +77,9 @@ export default function ParentCheck() {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
-      const { data: logsData, error: logsError } = await supabase
-        .from('attendance_logs')
+      const { data: logsData, error: logsError } = await (supabase.from('attendance_logs') as any)
         .select('*')
-        .eq('student_id', studentData.id)
+        .eq('student_id', (studentData as any).id)
         .eq('is_deleted', false)
         .gte('created_at', today.toISOString())
         .order('created_at', { ascending: true })

@@ -57,8 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // If no session from getSession, check if we're still loading 
           // (onAuthStateChange might still fire)
           // We wait a tiny bit to see if onAuthStateChange handles it
-          setTimeout(() => {
-            if (isMounted.current && !supabase.auth.getUser()) {
+          setTimeout(async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (isMounted.current && !user) {
               setLoading(false);
             }
           }, 1000);
@@ -91,19 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching profile for:', userId);
       
-      // Pre-populate profile from user metadata if available
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser && isMounted.current) {
-        const fallback: Profile = {
-          id: currentUser.id,
-          full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'User',
-          role: currentUser.user_metadata?.role || 'guru',
-          is_verified: !!currentUser.user_metadata?.is_verified,
-          created_at: currentUser.created_at || new Date().toISOString()
-        };
-        setProfile(fallback);
-      }
-
       // Retry logic for profile fetch
       let data = null;
       let error = null;
@@ -112,46 +100,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       while (attempts < maxAttempts) {
         try {
-          console.log(`Profile fetch attempt ${attempts + 1}...`);
           const result = await withTimeout(
             supabase
               .from('profiles')
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 30000 : 60000,
+            attempts === 0 ? 60000 : 90000, // Increase timeout on retry
             'Profile Fetch'
           ) as any;
           
           data = result.data;
           error = result.error;
           
-          if (!error && data) break; // Success and we have data
-          if (!error && !data) {
-            console.warn('Profile not found in DB, might be a new user.');
-            break;
-          }
+          if (!error) break; // Success
         } catch (err: any) {
           error = err;
           // If it's a timeout, we retry
           if (err.message.includes('timeout') && attempts < maxAttempts - 1) {
             console.warn(`Profile fetch attempt ${attempts + 1} timed out, retrying...`);
-          } else if (!err.message.includes('timeout')) {
-            // Not a timeout, likely a real error (RLS, table missing etc)
+          } else {
             throw err;
           }
         }
         attempts++;
       }
 
-      if (data && isMounted.current) {
+      if (error) throw error;
+      
+      if (isMounted.current) {
         setProfile(data);
-        console.log('Profile loaded successfully from database');
-      } else if (error && !data) {
-        console.warn('Profile fetch timed out or failed. Using fallback metadata.');
+        console.log('Profile loaded successfully');
       }
     } catch (error: any) {
-      console.error('Final Error in fetchProfile:', error.message);
+      console.error('Error in fetchProfile:', error.message);
+      // Optional: show a user-friendly toast if it's a persistent timeout
+      if (error.message.includes('timeout')) {
+        // We'll let the user know, but they might be able to use basic features
+        console.warn('Profile fetch failed due to timeout. Some features may be limited.');
+      }
     } finally {
       fetchingProfileFor.current = null;
       if (isMounted.current) {
