@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('platform_owner', 'admin_sekolah', 'guru', 'orang_tua')),
+  is_verified BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -95,6 +96,13 @@ CREATE TABLE IF NOT EXISTS public.settings (
   value JSONB NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- INITIAL DATA
+INSERT INTO public.settings (id, value) 
+VALUES 
+('geofence', '{"center": {"lat": -6.200000, "lng": 106.816666}, "radius": 100}'),
+('school_profile', '{"schoolName": "EduPulse Smart School"}')
+ON CONFLICT (id) DO NOTHING;
 
 -- ENABLE ROW LEVEL SECURITY
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

@@ -47,8 +47,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // We still call initAuth to handle the very first load properly in case onAuthStateChange is slow
     const initAuth = async () => {
+      // Emergency timeout for initial load (45s)
+      const loadTimeout = setTimeout(() => {
+        if (isMounted.current && loading) {
+          console.warn('Auth initialization taking too long, forcing loading to false');
+          setLoading(false);
+        }
+      }, 45000);
+
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResult = await withTimeout(
+          supabase.auth.getSession(),
+          60000,
+          'Auth Session Initialization'
+        ) as any;
+        const session = sessionResult?.data?.session;
+        
         if (isMounted.current && session?.user) {
           setSession(session);
           setUser(session.user);
@@ -58,15 +72,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // (onAuthStateChange might still fire)
           // We wait a tiny bit to see if onAuthStateChange handles it
           setTimeout(async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (isMounted.current && !user) {
-              setLoading(false);
+            try {
+              const userResult = await withTimeout(
+                supabase.auth.getUser(),
+                30000,
+                'Auth User Check'
+              ) as any;
+              const user = userResult?.data?.user;
+              if (isMounted.current && !user) {
+                setLoading(false);
+              }
+            } catch (e) {
+              if (isMounted.current) setLoading(false);
             }
           }, 1000);
         }
       } catch (err) {
         console.error('Init auth error:', err);
+        // On session error, we still want to finish loading so the user can see the login page
         if (isMounted.current) setLoading(false);
+      } finally {
+        clearTimeout(loadTimeout);
       }
     };
 
@@ -106,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 60000 : 90000, // Increase timeout on retry
+            attempts === 0 ? 60000 : 120000, // Even more generous timeouts
             'Profile Fetch'
           ) as any;
           

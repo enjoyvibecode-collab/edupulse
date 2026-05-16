@@ -58,23 +58,25 @@ export const supabase = createClient<Database>(
 /**
  * Helper to wrap promises with a timeout
  */
-export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 30000, context: string = 'Operation'): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 60000, context: string = 'Operation'): Promise<T> {
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
-      const errorMsg = `${context} timeout setelah ${timeoutMs}ms. Koneksi database sedang lambat, silakan refresh halaman atau tunggu sebentar.`;
+      const errorMsg = `${context} timeout setelah ${timeoutMs}ms. Koneksi database sedang lambat atau terputus. Silakan refresh halaman.`;
       console.warn('TIMEOUT:', errorMsg);
       reject(new Error(errorMsg));
     }, timeoutMs);
   });
 
   try {
-    const result = await Promise.race([promise as Promise<T>, timeoutPromise]);
+    // Ensure the promise is actually a native promise
+    const actualPromise = Promise.resolve(promise);
+    const result = await Promise.race([actualPromise, timeoutPromise]);
     clearTimeout(timeoutId);
     return result as T;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    if (!error.message.includes('timed out')) {
+    if (error.message && !error.message.includes('timeout')) {
       console.error(`ERROR in ${context}:`, error);
     }
     throw error;

@@ -7,6 +7,13 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
+    css: {
+      transformer: 'lightningcss',
+    },
+    build: {
+      cssTarget: ['chrome70', 'safari12', 'firefox60', 'edge18'],
+      target: 'es2020',
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },

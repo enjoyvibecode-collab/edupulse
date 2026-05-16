@@ -65,8 +65,7 @@ export default function UserManagement() {
 
   const updateRole = async (userId: string, newRole: UserRole) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase.from('profiles') as any)
         .update({ role: newRole })
         .eq('id', userId)
 
@@ -81,8 +80,7 @@ export default function UserManagement() {
 
   const toggleVerification = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase.from('profiles') as any)
         .update({ is_verified: !currentStatus })
         .eq('id', userId)
 

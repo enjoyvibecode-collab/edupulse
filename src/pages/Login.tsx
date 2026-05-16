@@ -53,7 +53,7 @@ export default function Login() {
             email,
             password,
           }),
-          30000,
+          45000,
           'Autentikasi'
         ) as any;
         
