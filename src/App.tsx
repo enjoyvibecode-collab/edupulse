@@ -8,6 +8,7 @@ import { DashboardLayout } from "./layouts/DashboardLayout"
 import Dashboard from "./pages/Dashboard"
 import Students from "./pages/Students"
 import Attendance from "./pages/Attendance"
+import AttendanceReport from "./pages/AttendanceReport"
 import AIScanner from "./pages/AIScanner"
 import Settings from "./pages/Settings"
 import Login from "./pages/Login"
@@ -70,6 +71,17 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Attendance />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/reports" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <AttendanceReport />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 

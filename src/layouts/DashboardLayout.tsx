@@ -2,7 +2,7 @@ import * as React from "react"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { Separator } from "@/components/ui/separator"
-import { Bell, Search, LayoutDashboard, Users, Clock, Scan, Settings, LogOut } from "lucide-react"
+import { Bell, Search, LayoutDashboard, Users, Clock, Scan, Settings, LogOut, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
 import { Link, useLocation } from "react-router-dom"
@@ -19,6 +19,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { title: "Home", icon: LayoutDashboard, path: "/" },
     ...adminMobileItems,
     { title: "Students", icon: Users, path: "/students" },
+    { title: "Reports", icon: FileText, path: "/reports" },
     { title: "Scan", icon: Scan, path: "/scanner" },
     { title: "Absen", icon: Clock, path: "/attendance" },
     { title: "Set", icon: Settings, path: "/settings" },
