@@ -168,9 +168,11 @@ export default function Attendance() {
     const channel = supabase
       .channel('realtime_attendance')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+        studentService.clearCache();
         fetchData(false)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        studentService.clearCache();
         fetchData(false)
       })
       .subscribe()
@@ -336,24 +338,46 @@ export default function Attendance() {
     const start = startOfDay(today)
     const end = endOfDay(today)
 
+    // Create a map of student ID to their logs for extreme performance (O(N+M) instead of O(N*M))
+    const studentLogsMap: Record<string, { 
+      logs: any[], 
+      latest: any, 
+      hasPagi: boolean, 
+      hasDzuhur: boolean, 
+      hasPulang: boolean 
+    }> = {}
+
+    logs.forEach(log => {
+      const logDate = new Date(log.created_at)
+      if (logDate >= start && logDate <= end) {
+        if (!studentLogsMap[log.student_id]) {
+          studentLogsMap[log.student_id] = { logs: [], latest: null, hasPagi: false, hasDzuhur: false, hasPulang: false }
+        }
+        
+        const entry = studentLogsMap[log.student_id]
+        entry.logs.push(log)
+        
+        // Logs are sorted DESC by created_at in fetch, so the first one we see is the latest
+        if (!entry.latest) entry.latest = log
+        
+        if (log.status === 'hadir_pagi') entry.hasPagi = true
+        if (log.status === 'dzuhur') entry.hasDzuhur = true
+        if (log.status === 'pulang') entry.hasPulang = true
+      }
+    })
+
     return students.map(student => {
-      const studentLogs = logs.filter(log => 
-        log.student_id === student.id &&
-        new Date(log.created_at) >= start &&
-        new Date(log.created_at) <= end
-      )
-      
-      const latestLog = studentLogs[0] // Logs are sorted DESC by created_at
+      const entry = studentLogsMap[student.id]
       
       return {
         ...student,
-        currentStatus: latestLog ? latestLog.status : 'absent',
-        hasPagi: studentLogs.some(l => l.status === 'hadir_pagi'),
-        hasDzuhur: studentLogs.some(l => l.status === 'dzuhur'),
-        hasPulang: studentLogs.some(l => l.status === 'pulang'),
-        time: latestLog ? latestLog.created_at : null,
-        confidence: latestLog ? latestLog.confidence : null,
-        log_id: latestLog ? latestLog.id : null
+        currentStatus: entry?.latest ? entry.latest.status : 'absent',
+        hasPagi: entry?.hasPagi || false,
+        hasDzuhur: entry?.hasDzuhur || false,
+        hasPulang: entry?.hasPulang || false,
+        time: entry?.latest ? entry.latest.created_at : null,
+        confidence: entry?.latest ? entry.latest.confidence : null,
+        log_id: entry?.latest ? entry.latest.id : null
       }
     }).filter(s => 
       s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||

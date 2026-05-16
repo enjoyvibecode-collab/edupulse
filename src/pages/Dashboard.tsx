@@ -42,9 +42,11 @@ export default function Dashboard() {
     const channel = supabase
       .channel('realtime_dashboard')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+        studentService.clearCache();
         fetchStats(false)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        studentService.clearCache();
         fetchStats(false)
       })
       .subscribe()

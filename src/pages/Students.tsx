@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { studentService } from "@/lib/studentService"
+import { supabase } from "@/lib/supabase"
 import { Student } from "@/types"
 import { StudentForm } from "@/components/students/StudentForm"
 import { FaceRegistrationModal } from "@/components/students/FaceRegistrationModal"
@@ -84,6 +85,18 @@ export default function Students() {
 
   useEffect(() => {
     fetchStudents()
+
+    const channel = supabase
+      .channel('realtime_students')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        studentService.clearCache();
+        fetchStudents()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const handleDelete = async (id: string) => {

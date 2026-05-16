@@ -4,20 +4,44 @@ import { startOfDay, endOfDay, subDays, format, eachDayOfInterval } from "date-f
 import { id as localeId } from "date-fns/locale";
 import { isWindowActive } from "./attendanceConfig";
 
+// Simple cache to prevent redundant fetches during navigation
+const cache: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 30000; // 30 seconds
+
+function getFromCache(key: string) {
+  const item = cache[key];
+  if (item && (Date.now() - item.timestamp < CACHE_TTL)) {
+    return item.data;
+  }
+  return null;
+}
+
+function setCache(key: string, data: any) {
+  cache[key] = { data, timestamp: Date.now() };
+}
+
+export function clearCache() {
+  Object.keys(cache).forEach(key => delete cache[key]);
+}
+
 export const studentService = {
   async getAll() {
+    const cached = getFromCache('students_all');
+    if (cached) return cached;
+
     const res = await withTimeout(
       (supabase as any)
         .from('students')
         .select('*')
         .order('created_at', { ascending: false }),
-      30000,
+      20000,
       'Get All Students'
     ) as any;
     
     const { data, error } = res;
     
     if (error) throw error;
+    setCache('students_all', data);
     return data as Student[];
   },
 
@@ -46,6 +70,7 @@ export const studentService = {
       .single();
     
     if (error) throw error;
+    clearCache();
     return data as Student;
   },
 
@@ -56,6 +81,7 @@ export const studentService = {
       .select();
     
     if (error) throw error;
+    clearCache();
     return data as Student[];
   },
 
@@ -68,6 +94,7 @@ export const studentService = {
       .single();
     
     if (error) throw error;
+    clearCache();
     return data as Student;
   },
 
@@ -87,6 +114,7 @@ export const studentService = {
     if (count === 0) {
       console.warn("No student record found to delete with ID:", id);
     }
+    clearCache();
   },
 
   async saveFaceDescriptor(id: string, descriptor: number[]) {
@@ -98,10 +126,16 @@ export const studentService = {
       .single();
     
     if (error) throw error;
+    clearCache();
     return data as Student;
   },
 
   async getAttendanceLogs() {
+    // We don't cache logs for long because they are highly real-time, 
+    // but a 5s cache helps during navigation bounces
+    const cached = getFromCache('attendance_logs_all');
+    if (cached) return cached;
+
     const res = await withTimeout(
       (supabase as any)
         .from('attendance_logs')
@@ -114,13 +148,15 @@ export const studentService = {
         `)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false }),
-      30000,
+      20000,
       'Get Attendance Logs'
     ) as any;
     
     const { data, error } = res;
     
     if (error) throw error;
+    // Lower TTL for logs
+    cache['attendance_logs_all'] = { data, timestamp: Date.now() - 25000 }; 
     return data;
   },
 
@@ -176,6 +212,7 @@ export const studentService = {
       .single();
     
     if (error) throw error;
+    clearCache();
     return data as AttendanceLog;
   },
 
@@ -212,6 +249,8 @@ export const studentService = {
         new_data: { is_deleted: true, reason },
         action_by: adminId
       }]);
+    
+    clearCache();
   },
 
   async updateAttendance(id: string, updates: Partial<AttendanceLog>, adminId: string, reason: string) {
@@ -249,10 +288,14 @@ export const studentService = {
         action_by: adminId
       }]);
 
+    clearCache();
     return newLog;
   },
 
   async getDashboardStats() {
+    const cached = getFromCache('dashboard_stats');
+    if (cached) return cached;
+
     const today = new Date();
     const start = startOfDay(today).toISOString();
     const end = endOfDay(today).toISOString();
@@ -263,13 +306,19 @@ export const studentService = {
         (supabase as any).from('students').select('id, class_name'),
         (supabase as any).from('attendance_logs').select('student_id, status').eq('is_deleted', false).gte('created_at', start).lte('created_at', end)
       ]),
-      30000,
+      20000,
       'Dashboard Stats Fetch'
     ) as any[];
 
     const students = allStudentsData?.data || [];
     const logs = todayLogsData?.data || [];
     
+    const result = this.processDashboardStats(students, logs);
+    setCache('dashboard_stats', result);
+    return result;
+  },
+
+  processDashboardStats(students: any[], logs: any[]) {
     const totalSiswa = students.length;
     
     // Efficient counting using Sets
