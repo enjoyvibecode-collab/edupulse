@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const sessionResult = await withTimeout(
           supabase.auth.getSession(),
-          60000,
+          30000,
           'Auth Session Initialization'
         ) as any;
         const session = sessionResult?.data?.session;
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const userResult = await withTimeout(
                 supabase.auth.getUser(),
-                30000,
+                20000,
                 'Auth User Check'
               ) as any;
               const user = userResult?.data?.user;
@@ -132,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 60000 : 120000, // Even more generous timeouts
+            attempts === 0 ? 20000 : 40000, // Reduced timeouts
             'Profile Fetch'
           ) as any;
           

@@ -158,18 +158,18 @@ export default function BulkQRGenerator() {
             </div>
             <div className="flex bg-slate-100 p-1 rounded-lg">
               <Button 
-                variant={viewMode === "grid" ? "white" : "ghost"} 
+                variant={viewMode === "grid" ? "secondary" : "ghost"} 
                 size="sm" 
                 onClick={() => setViewMode("grid")}
-                className={viewMode === "grid" ? "shadow-sm font-bold h-8" : "text-slate-500 h-8"}
+                className={viewMode === "grid" ? "bg-white shadow-sm font-bold h-8" : "text-slate-500 h-8"}
               >
                 <Grid className="h-4 w-4" />
               </Button>
               <Button 
-                variant={viewMode === "list" ? "white" : "ghost"} 
+                variant={viewMode === "list" ? "secondary" : "ghost"} 
                 size="sm" 
                 onClick={() => setViewMode("list")}
-                className={viewMode === "list" ? "shadow-sm font-bold h-8" : "text-slate-500 h-8"}
+                className={viewMode === "list" ? "bg-white shadow-sm font-bold h-8" : "text-slate-500 h-8"}
               >
                 <ListIcon className="h-4 w-4" />
               </Button>
@@ -193,7 +193,7 @@ export default function BulkQRGenerator() {
             </div>
           ) : (
             <div className={viewMode === "grid" ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 print-container" : "space-y-2 print-container"}>
-              {filteredStudents.map((student) => (
+              {filteredStudents.map((student: Student) => (
                 <QRCard key={student.id} student={student} mode={viewMode} />
               ))}
             </div>
@@ -206,7 +206,12 @@ export default function BulkQRGenerator() {
   )
 }
 
-function QRCard({ student, mode }: { student: Student, mode: "grid" | "list" }) {
+interface QRCardProps {
+  student: Student;
+  mode: "grid" | "list";
+}
+
+const QRCard: React.FC<QRCardProps> = ({ student, mode }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {

@@ -58,11 +58,11 @@ export const supabase = createClient<Database>(
 /**
  * Helper to wrap promises with a timeout
  */
-export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 60000, context: string = 'Operation'): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 30000, context: string = 'Operation'): Promise<T> {
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
-      const errorMsg = `${context} timeout setelah ${timeoutMs}ms. Koneksi database sedang lambat atau terputus. Silakan refresh halaman.`;
+      const errorMsg = `${context} timeout (${timeoutMs}ms). Jalankan SQL di Supabase jika ini pertama kali, atau periksa koneksi internet.`;
       console.warn('TIMEOUT:', errorMsg);
       reject(new Error(errorMsg));
     }, timeoutMs);

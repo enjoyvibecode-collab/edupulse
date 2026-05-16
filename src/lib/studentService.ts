@@ -257,42 +257,56 @@ export const studentService = {
     const start = startOfDay(today).toISOString();
     const end = endOfDay(today).toISOString();
 
-    const results = await withTimeout(
+    // Fetch in parallel but with a safety catch
+    const [allStudentsData, todayLogsData] = await withTimeout(
       Promise.all([
-        (supabase as any).from('students').select('*'),
-        (supabase as any).from('attendance_logs').select('*').eq('is_deleted', false).gte('created_at', start).lte('created_at', end)
+        (supabase as any).from('students').select('id, class_name'),
+        (supabase as any).from('attendance_logs').select('student_id, status').eq('is_deleted', false).gte('created_at', start).lte('created_at', end)
       ]),
       30000,
-      'Get Dashboard Stats'
+      'Dashboard Stats Fetch'
     ) as any[];
 
-    const [allStudentsData, todayLogs] = results;
-    const students = (allStudentsData as any).data || [];
-    const totalSiswa = students.length;
-    const logs = (todayLogs as any).data || [];
+    const students = allStudentsData?.data || [];
+    const logs = todayLogsData?.data || [];
     
-    // Count stats for each type
-    const hadirPagi = new Set(logs.filter((l: any) => l.status === 'hadir_pagi').map((l: any) => l.student_id)).size;
-    const dzuhur = new Set(logs.filter((l: any) => l.status === 'dzuhur').map((l: any) => l.student_id)).size;
-    const pulang = new Set(logs.filter((l: any) => l.status === 'pulang').map((l: any) => l.student_id)).size;
+    const totalSiswa = students.length;
+    
+    // Efficient counting using Sets
+    const hadirPagiIds = new Set();
+    const dzuhurIds = new Set();
+    const pulangIds = new Set();
 
-    // Calculate Class Detailed Stats
+    // Map for class stats to avoid multiple passes
     const classStats: Record<string, { total: number, pagi: number, dzuhur: number, pulang: number }> = {};
     
+    // Group logs by student and type first for faster lookup
+    const studentStatusMap: Record<string, Set<string>> = {};
+    logs.forEach((l: any) => {
+      if (!studentStatusMap[l.student_id]) studentStatusMap[l.student_id] = new Set();
+      studentStatusMap[l.student_id].add(l.status);
+      
+      if (l.status === 'hadir_pagi') hadirPagiIds.add(l.student_id);
+      if (l.status === 'dzuhur') dzuhurIds.add(l.student_id);
+      if (l.status === 'pulang') pulangIds.add(l.student_id);
+    });
+
     students.forEach((s: any) => {
       const cls = s.class_name || "Tanpa Kelas";
       if (!classStats[cls]) classStats[cls] = { total: 0, pagi: 0, dzuhur: 0, pulang: 0 };
       classStats[cls].total++;
       
-      const studentLogs = logs.filter((l: any) => l.student_id === s.id);
-      if (studentLogs.some((l: any) => l.status === 'hadir_pagi')) classStats[cls].pagi++;
-      if (studentLogs.some((l: any) => l.status === 'dzuhur')) classStats[cls].dzuhur++;
-      if (studentLogs.some((l: any) => l.status === 'pulang')) classStats[cls].pulang++;
+      const statuses = studentStatusMap[s.id];
+      if (statuses) {
+        if (statuses.has('hadir_pagi')) classStats[cls].pagi++;
+        if (statuses.has('dzuhur')) classStats[cls].dzuhur++;
+        if (statuses.has('pulang')) classStats[cls].pulang++;
+      }
     });
 
     const classRekap = Object.entries(classStats)
       .map(([name, data]) => ({
-        name: name,
+        name,
         total: data.total,
         pagi: data.pagi,
         dzuhur: data.dzuhur,
@@ -302,10 +316,10 @@ export const studentService = {
     
     return {
       totalSiswa,
-      hadirPagi,
-      dzuhur,
-      pulang,
-      absen: totalSiswa - hadirPagi,
+      hadirPagi: hadirPagiIds.size,
+      dzuhur: dzuhurIds.size,
+      pulang: pulangIds.size,
+      absen: totalSiswa - hadirPagiIds.size,
       classRekap
     };
   },
