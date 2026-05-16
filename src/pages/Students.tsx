@@ -70,104 +70,114 @@ export default function Students() {
 
   const generateIDCard = async (student: Student) => {
     try {
-      // Standard ID-1 size: 85.6mm x 53.98mm (Landscape)
+      // Standard ID-1 size: 54mm x 85.6mm (Portrait)
       const doc = new jsPDF({
-        orientation: 'l',
+        orientation: 'p',
         unit: 'mm',
-        format: [85.6, 54]
+        format: [54, 85.6]
       })
 
-      // 1. Desain Background & Header
-      doc.setFillColor(79, 70, 229) // Indigo-600
-      doc.rect(0, 0, 85.6, 12, 'F')
-      
-      doc.setFontSize(10)
-      doc.setTextColor(255, 255, 255)
-      doc.setFont('helvetica', 'bold')
-      doc.text("KARTU SISWA EDUPULSE", 42.8, 7, { align: 'center' })
-      doc.setFontSize(6)
-      doc.text("Sistem Absensi Kehadiran Pintar", 42.8, 10, { align: 'center' })
+      const cardW = 54
+      const cardH = 85.6
 
-      // 2. Area Foto (Sisi Kiri)
-      const photoX = 6
-      const photoY = 16
-      const photoW = 24
-      const photoH = 32
-      
+      // 1. Background Navy Deep
+      doc.setFillColor(26, 32, 58) // Navy Blue
+      doc.rect(0, 0, cardW, cardH, 'F')
+
+      // 2. Aksen Garis Gold di Atas (Diagonal Pattern)
+      doc.setDrawColor(184, 146, 96) // Gold/Tan Color
+      doc.setLineWidth(1.5)
+      // Garis kiri ke bawah
+      doc.line(0, 5, 20, 25)
+      doc.line(0, 15, 30, 45)
+      // Garis kanan ke bawah
+      doc.line(cardW, 5, cardW - 20, 25)
+      doc.line(cardW, 15, cardW - 30, 45)
+
+      // 3. Foto Siswa (Bulat/Circular)
+      const photoSize = 35
+      const photoX = (cardW - photoSize) / 2
+      const photoY = 18
+
+      // Lingkaran Gold Border
+      doc.setDrawColor(184, 146, 96)
+      doc.setLineWidth(0.8)
+      doc.circle(cardW / 2, photoY + (photoSize / 2), (photoSize / 2) + 0.5, 'D')
+
       if (student.photo_url) {
         try {
-          doc.addImage(student.photo_url, 'JPEG', photoX, photoY, photoW, photoH)
+          // Kita gunakan fitur clip jsPDF untuk membuat foto bulat
+          doc.saveGraphicsState()
+          doc.circle(cardW / 2, photoY + (photoSize / 2), photoSize / 2, 'F')
+          doc.clip()
+          doc.addImage(student.photo_url, 'JPEG', photoX, photoY, photoSize, photoSize)
+          doc.restoreGraphicsState()
         } catch (e) {
-          doc.setFillColor(243, 244, 246)
-          doc.rect(photoX, photoY, photoW, photoH, 'F')
-          doc.setTextColor(156, 163, 175)
-          doc.setFontSize(6)
-          doc.text("NO PHOTO", photoX + (photoW/2), photoY + (photoH/2), { align: 'center' })
+          // Fallback jika foto gagal
+          doc.setFillColor(45, 55, 85)
+          doc.circle(cardW / 2, photoY + (photoSize / 2), photoSize / 2, 'F')
         }
       } else {
-        doc.setFillColor(243, 244, 246)
-        doc.rect(photoX, photoY, photoW, photoH, 'F')
-        doc.setTextColor(156, 163, 175)
-        doc.setFontSize(6)
-        doc.text("NO PHOTO", photoX + (photoW/2), photoY + (photoH/2), { align: 'center' })
+        doc.setFillColor(45, 55, 85)
+        doc.circle(cardW / 2, photoY + (photoSize / 2), photoSize / 2, 'F')
       }
 
-      // 3. Data Siswa (Sisi Tengah)
-      const dataX = 34
-      doc.setTextColor(15, 23, 42) // slate-900
-      doc.setFontSize(10)
+      // 4. Nama Siswa
+      doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
-      doc.text(student.full_name.toUpperCase(), dataX, 22)
-      
-      doc.setFontSize(7)
+      doc.setFontSize(14)
+      const name = student.full_name.split(' ').slice(0, 2).join(' ') // Batasi 2 kata agar rapi
+      doc.text(name.toUpperCase(), cardW / 2, 62, { align: 'center' })
+
+      // 5. Nama Sekolah (Gold)
+      doc.setTextColor(184, 146, 96)
       doc.setFont('helvetica', 'normal')
-      doc.setTextColor(71, 85, 105) // slate-600
-      doc.text("NISN", dataX, 28)
-      doc.setTextColor(15, 23, 42)
-      doc.text(`: ${student.nisn}`, dataX + 10, 28)
+      doc.setFontSize(8)
+      doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 67, { align: 'center' })
 
-      doc.setTextColor(71, 85, 105)
-      doc.text("Kelas", dataX, 32)
-      doc.setTextColor(15, 23, 42)
-      doc.text(`: ${student.class_name}`, dataX + 10, 32)
+      // 6. Footer (Separator Line)
+      doc.setDrawColor(255, 255, 255)
+      doc.setAlpha(0.3)
+      doc.setLineWidth(0.2)
+      doc.line(5, 71, cardW - 5, 71)
+      doc.setAlpha(1)
 
-      doc.setTextColor(71, 85, 105)
-      doc.text("Status", dataX, 36)
-      doc.setTextColor(15, 23, 42)
-      doc.text(": AKTIF", dataX + 10, 36)
-
-      // 4. QR Code (Sisi Kanan)
+      // 7. QR Code (Kiri Bawah)
       try {
         const qrCanvas = document.createElement('canvas')
         const QRCode = (await import('qrcode')).default
         await QRCode.toCanvas(qrCanvas, student.nisn, {
-          width: 120,
-          margin: 0,
+          width: 100,
+          margin: 1,
           color: {
-            dark: '#1e293b', // slate-800
-            light: '#FFFFFF'
+            dark: '#FFFFFF',
+            light: '#1A203A' // Navy matching background
           }
         })
         const qrDataUrl = qrCanvas.toDataURL('image/png')
-        doc.addImage(qrDataUrl, 'PNG', 65, 18, 16, 16)
-        
-        doc.setFontSize(5)
-        doc.setTextColor(148, 163, 184)
-        doc.text("SCAN QR FOR", 73, 36, { align: 'center' })
-        doc.text("ATTENDANCE", 73, 38, { align: 'center' })
+        doc.addImage(qrDataUrl, 'PNG', 6, 73, 10, 10)
       } catch (err) {
         console.error("QR Error", err)
       }
 
-      // 5. Footer Aksentuasi
-      doc.setFillColor(79, 70, 229, 0.1)
-      doc.rect(0, 48, 85.6, 6, 'F')
-      doc.setFontSize(5.5)
-      doc.setTextColor(79, 70, 229)
-      doc.text("ID CARD INI WAJIB DIBAWA SETIAP HARI KE SEKOLAH", 42.8, 52, { align: 'center' })
+      // 8. Vertical Divider & School Logo/text (Kanan Bawah)
+      doc.setDrawColor(255, 255, 255)
+      doc.setAlpha(0.3)
+      doc.line(18, 72, 18, 83)
+      doc.setAlpha(1)
 
-      doc.save(`KARTU_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
-      toast.success("Kartu Siswa (Lanskap) berhasil diunduh")
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text("NESATMA", 21, 78)
+      
+      doc.setTextColor(184, 146, 96)
+      doc.setFontSize(6)
+      doc.setFont('helvetica', 'normal')
+      doc.text("STUDENT ID CARD", 21, 81)
+
+      doc.save(`ID_CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
+      toast.success("ID Card Premium berhasil diunduh")
     } catch (error: any) {
       console.error("PDF Error:", error)
       toast.error("Gagal men-generate kartu: " + error.message)
