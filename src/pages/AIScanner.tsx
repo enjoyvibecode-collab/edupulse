@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import * as faceapi from "face-api.js"
+import { Html5Qrcode } from "html5-qrcode"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,7 +16,8 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Info
+  Info,
+  QrCode
 } from "lucide-react"
 import { toast } from "sonner"
 import { studentService } from "@/lib/studentService"
@@ -41,6 +43,7 @@ export default function AIScanner() {
   const [schoolZone, setSchoolZone] = useState(SCHOOL_ZONE)
   
   // Real-time recognition state
+  const [scanMethod, setScanMethod] = useState<'face' | 'qr'>('face')
   const [scannerMode, setScannerMode] = useState<AttendanceType>('hadir_pagi')
   const [recognitionStatus, setRecognitionStatus] = useState<"scanning" | "recognized" | "unknown" | "idle">("idle")
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -51,6 +54,7 @@ export default function AIScanner() {
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const qrScannerRef = useRef<Html5Qrcode | null>(null)
   const recognitionLoopRef = useRef<number | null>(null)
   const lastRecognizedIdRef = useRef<string | null>(null)
   const lastRecognizedTimeRef = useRef<number>(0)
@@ -182,10 +186,76 @@ export default function AIScanner() {
     return () => {
       clearInterval(timer)
       stopVideo()
+      stopQRScanner()
       if (recognitionLoopRef.current) cancelAnimationFrame(recognitionLoopRef.current)
       supabase.removeChannel(channel)
     }
   }, [])
+
+  const startQRScanner = async () => {
+    if (!videoRef.current) return
+    
+    try {
+      if (qrScannerRef.current) {
+        await stopQRScanner()
+      }
+
+      const qrScanner = new Html5Qrcode("qr-reader")
+      qrScannerRef.current = qrScanner
+
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } }
+      
+      await qrScanner.start(
+        { facingMode: "user" },
+        config,
+        async (decodedText) => {
+          // Prevent multiple scans during cooldown
+          if (cooldown) return
+
+          // Find student by NISN
+          const student = studentsWithFaces.find(s => s.nisn === decodedText)
+          if (student) {
+            setRecognitionStatus("recognized")
+            setLastRecognizedData(student)
+            
+            const now = Date.now()
+            if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) {
+              return
+            }
+
+            handleAutoAttendance(student.id, 0.1) // 0.1 distance for QR as it's perfect match
+            lastRecognizedIdRef.current = student.id
+            lastRecognizedTimeRef.current = now
+          } else {
+            setRecognitionStatus("unknown")
+            toast.error("QR Code tidak dikenal")
+          }
+        },
+        () => {} // silent error for frame scanning
+      )
+    } catch (err) {
+      console.error("QR Start Error:", err)
+      toast.error("Gagal memulai QR Scanner")
+    }
+  }
+
+  const stopQRScanner = async () => {
+    if (qrScannerRef.current && qrScannerRef.current.isScanning) {
+      await qrScannerRef.current.stop()
+      qrScannerRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    if (scanMethod === 'qr') {
+      stopVideo()
+      if (recognitionLoopRef.current) cancelAnimationFrame(recognitionLoopRef.current)
+      startQRScanner()
+    } else {
+      stopQRScanner()
+      if (modelsLoaded) startVideo()
+    }
+  }, [scanMethod, modelsLoaded])
 
   const checkLocation = async (zone = schoolZone) => {
     if (!navigator.geolocation) {
@@ -428,10 +498,34 @@ export default function AIScanner() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-black italic tracking-tighter text-slate-900 uppercase">
-            Smart <span className="text-primary underline decoration-primary/20 underline-offset-4">AI Scanner</span>
+            Smart <span className="text-primary underline decoration-primary/20 underline-offset-4">Scanner</span>
           </h1>
-          <p className="text-muted-foreground font-medium">Terminal absensi otomatis berbasis pengenalan wajah.</p>
+          <p className="text-muted-foreground font-medium">Terminal absensi otomatis berbasis Wajah & QR.</p>
         </div>
+        
+        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+          <Button
+            size="sm"
+            variant={scanMethod === 'face' ? 'default' : 'ghost'}
+            onClick={() => setScanMethod('face')}
+            className={`h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              scanMethod === 'face' ? 'bg-indigo-600 shadow-lg' : 'text-slate-500'
+            }`}
+          >
+            <Sparkles className="mr-2 h-3.5 w-3.5" /> Face Mode
+          </Button>
+          <Button
+            size="sm"
+            variant={scanMethod === 'qr' ? 'default' : 'ghost'}
+            onClick={() => setScanMethod('qr')}
+            className={`h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              scanMethod === 'qr' ? 'bg-emerald-600 shadow-lg' : 'text-slate-500'
+            }`}
+          >
+            <QrCode className="mr-2 h-3.5 w-3.5" /> Card/QR Mode
+          </Button>
+        </div>
+
         <div className="flex flex-wrap items-center gap-3">
           {/* Time and Active Window Info */}
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
@@ -537,20 +631,42 @@ export default function AIScanner() {
                 )}
               </div>
 
-              <div className="aspect-[4/3] md:aspect-video relative group">
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  muted 
-                  playsInline 
-                  className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-                />
-                <canvas 
-                  ref={canvasRef} 
-                  className="absolute top-0 left-0 w-full h-full" 
-                />
+              <div className="aspect-[4/3] md:aspect-video relative group bg-slate-900">
+                {scanMethod === 'face' ? (
+                  <>
+                    <video 
+                      ref={videoRef} 
+                      autoPlay 
+                      muted 
+                      playsInline 
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                    />
+                    <canvas 
+                      ref={canvasRef} 
+                      className="absolute top-0 left-0 w-full h-full" 
+                    />
+                  </>
+                ) : (
+                  <div className="relative w-full h-full">
+                    <div id="qr-reader" className="w-full h-full [&_video]:object-cover [&_video]:rounded-[2.5rem]" />
+                    <div className="absolute inset-0 pointer-events-none border-[40px] md:border-[80px] border-slate-950/40 z-10">
+                      <div className="w-full h-full border-2 border-emerald-500/50 rounded-2xl relative">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-10">
+                          <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] bg-slate-900/80 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/5">
+                            Scan Student Card QR
+                          </span>
+                        </div>
+                        {/* Corner Accents for QR Box */}
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-500 rounded-tl-lg" />
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-500 rounded-tr-lg" />
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-500 rounded-bl-lg" />
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-500 rounded-br-lg" />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
-                {!stream && locationStatus === 'allowed' && (
+                {scanMethod === 'face' && !stream && locationStatus === 'allowed' && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
                     <Button onClick={startVideo} className="h-14 px-8 rounded-2xl font-black uppercase tracking-widest bg-primary text-white shadow-2xl shadow-primary/40">
                       <Camera className="mr-3" /> Start Terminal

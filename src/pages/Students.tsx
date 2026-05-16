@@ -1,6 +1,7 @@
 import * as React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import * as XLSX from 'xlsx'
+import { jsPDF } from "jspdf"
 import { 
   Table, 
   TableBody, 
@@ -30,7 +31,8 @@ import {
   CheckCircle,
   XCircle,
   FileSpreadsheet,
-  Sparkles
+  Sparkles,
+  CreditCard
 } from "lucide-react"
 import { 
   Dialog, 
@@ -64,6 +66,81 @@ export default function Students() {
   const [importing, setImporting] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
   const [selectedForFace, setSelectedForFace] = useState<Student | null>(null)
+  const qrRef = useRef<HTMLCanvasElement>(null)
+
+  const generateIDCard = async (student: Student) => {
+    try {
+      const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [85.6, 53.98] // ID-1 standard size
+      })
+
+      // Background Card
+      doc.setFillColor(79, 70, 229) // Indigo-600
+      doc.rect(0, 0, 85.6, 15, 'F')
+      
+      doc.setFontSize(10)
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('helvetica', 'bold')
+      doc.text("KARTU SISWA EDUPULSE", 42.8, 8, { align: 'center' })
+      doc.setFontSize(6)
+      doc.text("Smart Attendance System", 42.8, 11, { align: 'center' })
+
+      // Photo
+      if (student.photo_url) {
+        try {
+          doc.addImage(student.photo_url, 'JPEG', 5, 20, 25, 30)
+        } catch (e) {
+          doc.setFillColor(240, 240, 240)
+          doc.rect(5, 20, 25, 30, 'F')
+        }
+      } else {
+        doc.setFillColor(240, 240, 240)
+        doc.rect(5, 20, 25, 30, 'F')
+      }
+
+      // Student Info
+      doc.setTextColor(30, 41, 59) // slate-800
+      doc.setFontSize(9)
+      doc.text(student.full_name.toUpperCase(), 35, 25)
+      
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(71, 85, 105) // slate-600
+      doc.text(`NISN: ${student.nisn}`, 35, 30)
+      doc.text(`Kelas: ${student.class_name}`, 35, 34)
+      doc.text(`ID: ${student.id.split('-')[0].toUpperCase()}`, 35, 38)
+
+      // QR Code
+      const qrCanvas = document.createElement('canvas')
+      const QRCode = (await import('qrcode')).default
+      await QRCode.toCanvas(qrCanvas, student.nisn, {
+        width: 100,
+        margin: 0,
+        color: {
+          dark: '#4F46E5',
+          light: '#FFFFFF'
+        }
+      })
+      const qrDataUrl = qrCanvas.toDataURL('image/png')
+      doc.addImage(qrDataUrl, 'PNG', 35, 42, 15, 15)
+
+      // Footer
+      doc.setFillColor(248, 250, 252) // slate-50
+      doc.rect(0, 75, 85.6, 11, 'F')
+      doc.setFontSize(6)
+      doc.setTextColor(148, 163, 184) // slate-400
+      doc.text("Kartu ini adalah properti sekolah", 42.8, 79, { align: 'center' })
+      doc.text("Jika ditemukan mohon kembalikan ke Madrasah", 42.8, 82, { align: 'center' })
+
+      doc.save(`KARTU_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
+      toast.success("Kartu Siswa berhasil di-generate")
+    } catch (error: any) {
+      console.error("PDF Error:", error)
+      toast.error("Gagal men-generate kartu: " + error.message)
+    }
+  }
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -315,6 +392,12 @@ export default function Students() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[180px] p-2 space-y-1">
                               <DropdownMenuItem 
+                                onClick={() => generateIDCard(student)}
+                                className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50"
+                              >
+                                <CreditCard className="mr-2 h-4 w-4" /> Cetak Kartu QR
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
                                 onClick={() => {
                                   setSelectedForFace(student)
                                   setIsFaceModalOpen(true)
@@ -386,6 +469,9 @@ export default function Students() {
                         <MoreVertical size={18} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[160px] p-2">
+                        <DropdownMenuItem onClick={() => generateIDCard(student)} className="font-bold text-xs p-3 text-indigo-600">
+                          <CreditCard className="mr-2 h-4 w-4" /> Cetak Kartu
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(student)} className="font-bold text-xs p-3">
                           <Edit2 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
