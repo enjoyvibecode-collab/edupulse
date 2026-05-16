@@ -91,6 +91,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Fetching profile for:', userId);
       
+      // Pre-populate profile from user metadata if available
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser && isMounted.current) {
+        const fallback: Profile = {
+          id: currentUser.id,
+          full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'User',
+          role: currentUser.user_metadata?.role || 'guru',
+          is_verified: !!currentUser.user_metadata?.is_verified,
+          created_at: currentUser.created_at || new Date().toISOString()
+        };
+        setProfile(fallback);
+      }
+
       // Retry logic for profile fetch
       let data = null;
       let error = null;
@@ -106,14 +119,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 15000 : 30000, // Reduced from 120s to something more interactive
+            attempts === 0 ? 30000 : 60000,
             'Profile Fetch'
           ) as any;
           
           data = result.data;
           error = result.error;
           
-          if (!error) break; // Success
+          if (!error && data) break; // Success and we have data
+          if (!error && !data) {
+            console.warn('Profile not found in DB, might be a new user.');
+            break;
+          }
         } catch (err: any) {
           error = err;
           // If it's a timeout, we retry
@@ -127,26 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         attempts++;
       }
 
-      if (error && !data) {
-        // If we still have an error after retries, try to construct a minimal profile from user metadata
-        console.warn('Persistent error or timeout in profile fetch. Constructing fallback profile.');
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (currentUser) {
-          data = {
-            id: currentUser.id,
-            full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'User',
-            role: currentUser.user_metadata?.role || 'guru',
-            is_verified: true, // Fallback to verified to allow entry if DB is just slow
-            created_at: new Date().toISOString()
-          } as Profile;
-        }
-      }
-
-      if (isMounted.current) {
+      if (data && isMounted.current) {
         setProfile(data);
-        if (data) {
-          console.log('Profile loaded (could be fallback if DB is slow)');
-        }
+        console.log('Profile loaded successfully from database');
+      } else if (error && !data) {
+        console.warn('Profile fetch timed out or failed. Using fallback metadata.');
       }
     } catch (error: any) {
       console.error('Final Error in fetchProfile:', error.message);

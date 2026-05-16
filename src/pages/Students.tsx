@@ -575,14 +575,14 @@ export default function Students() {
             </div>
 
             {/* 5. Elegant Thin Divider */}
-            <div className="w-[120px] h-[1px] bg-gradient-to-r from-transparent via-[#D4A373]/50 to-transparent my-8 z-10" />
+            <div className="w-[120px] h-[1px] bg-[#D4A373]/50 my-8 z-10" />
 
             {/* 6. Footer Layout */}
             <div className="absolute bottom-12 left-0 w-full px-10 flex items-center justify-between z-10">
               {/* QR Code Section (Bottom Left) */}
               <div className="flex flex-col items-start gap-2">
                 <div className="bg-white p-[3px] rounded-xl border border-[#D4A373]/30"
-                     style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
+                     style={{ boxShadow: '0 10px 15px rgba(0, 0, 0, 0.3)' }}>
                   <div className="rounded-lg overflow-hidden flex">
                     <canvas 
                       ref={(el) => {
@@ -614,12 +614,12 @@ export default function Students() {
                 <span className="text-[#D4A373]/80 text-[9px] font-bold uppercase tracking-[0.2em] mb-2 leading-none">
                   STUDENT ACCESS ID
                 </span>
-                <div className="w-10 h-[3px] bg-gradient-to-l from-[#D4A373] to-transparent rounded-full" />
+                <div className="w-10 h-[3px] bg-[#D4A373] rounded-full" />
               </div>
             </div>
 
             {/* 7. Premium Bottom Accent */}
-            <div className="absolute bottom-0 left-0 w-full h-2 bg-gradient-to-r from-[#D4A373] via-[#b88e60] to-[#D4A373]" />
+            <div className="absolute bottom-0 left-0 w-full h-2 bg-[#D4A373]" />
           </div>
         </div>
       )}
