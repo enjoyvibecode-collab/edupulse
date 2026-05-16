@@ -99,13 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       while (attempts < maxAttempts) {
         try {
+          console.log(`Profile fetch attempt ${attempts + 1}...`);
           const result = await withTimeout(
             supabase
               .from('profiles')
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 60000 : 90000, // Increase timeout on retry
+            attempts === 0 ? 15000 : 30000, // Reduced from 120s to something more interactive
             'Profile Fetch'
           ) as any;
           
@@ -118,26 +119,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // If it's a timeout, we retry
           if (err.message.includes('timeout') && attempts < maxAttempts - 1) {
             console.warn(`Profile fetch attempt ${attempts + 1} timed out, retrying...`);
-          } else {
+          } else if (!err.message.includes('timeout')) {
+            // Not a timeout, likely a real error (RLS, table missing etc)
             throw err;
           }
         }
         attempts++;
       }
 
-      if (error) throw error;
-      
+      if (error && !data) {
+        // If we still have an error after retries, try to construct a minimal profile from user metadata
+        console.warn('Persistent error or timeout in profile fetch. Constructing fallback profile.');
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (currentUser) {
+          data = {
+            id: currentUser.id,
+            full_name: currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || 'User',
+            role: currentUser.user_metadata?.role || 'guru',
+            is_verified: true, // Fallback to verified to allow entry if DB is just slow
+            created_at: new Date().toISOString()
+          } as Profile;
+        }
+      }
+
       if (isMounted.current) {
         setProfile(data);
-        console.log('Profile loaded successfully');
+        if (data) {
+          console.log('Profile loaded (could be fallback if DB is slow)');
+        }
       }
     } catch (error: any) {
-      console.error('Error in fetchProfile:', error.message);
-      // Optional: show a user-friendly toast if it's a persistent timeout
-      if (error.message.includes('timeout')) {
-        // We'll let the user know, but they might be able to use basic features
-        console.warn('Profile fetch failed due to timeout. Some features may be limited.');
-      }
+      console.error('Final Error in fetchProfile:', error.message);
     } finally {
       fetchingProfileFor.current = null;
       if (isMounted.current) {

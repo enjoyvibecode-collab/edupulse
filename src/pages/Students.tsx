@@ -510,8 +510,11 @@ export default function Students() {
         <div className="fixed top-[-9999px] left-[-9999px]">
           <div 
             ref={cardTemplateRef}
-            className="relative w-[360px] h-[580px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center shadow-2xl"
-            style={{ fontFamily: 'Inter, sans-serif' }}
+            className="relative w-[360px] h-[580px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center"
+            style={{ 
+              fontFamily: 'Inter, sans-serif',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' 
+            }}
           >
             {/* 1. Background Pattern (Subtle Geometric Luxury) */}
             <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
@@ -533,7 +536,8 @@ export default function Students() {
               <div className="absolute inset-0 bg-[#D4A373]/15 rounded-full blur-xl scale-110" />
               
               {/* Photo Container (Middle Layer) */}
-              <div className="relative w-[156px] h-[156px] rounded-full overflow-hidden bg-slate-800 z-10 border-[6px] border-[#1F2554] shadow-2xl">
+              <div className="relative w-[156px] h-[156px] rounded-full overflow-hidden bg-slate-800 z-10 border-[6px] border-[#1F2554]"
+                   style={{ boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}>
                 {exportingStudent.photo_url ? (
                   <img 
                     src={exportingStudent.photo_url} 
@@ -577,7 +581,8 @@ export default function Students() {
             <div className="absolute bottom-12 left-0 w-full px-10 flex items-center justify-between z-10">
               {/* QR Code Section (Bottom Left) */}
               <div className="flex flex-col items-start gap-2">
-                <div className="bg-white p-[3px] rounded-xl shadow-2xl border border-[#D4A373]/30">
+                <div className="bg-white p-[3px] rounded-xl border border-[#D4A373]/30"
+                     style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)' }}>
                   <div className="rounded-lg overflow-hidden flex">
                     <canvas 
                       ref={(el) => {

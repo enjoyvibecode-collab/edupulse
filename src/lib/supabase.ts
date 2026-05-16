@@ -58,7 +58,7 @@ export const supabase = createClient<Database>(
 /**
  * Helper to wrap promises with a timeout
  */
-export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 60000, context: string = 'Operation'): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: number = 120000, context: string = 'Operation'): Promise<T> {
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {

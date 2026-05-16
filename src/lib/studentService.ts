@@ -11,7 +11,7 @@ export const studentService = {
         .from('students')
         .select('*')
         .order('created_at', { ascending: false }),
-      60000,
+      120000,
       'Get All Students'
     ) as any;
     
@@ -28,7 +28,7 @@ export const studentService = {
         .select('*')
         .eq('id', id)
         .single(),
-      40000,
+      120000,
       'Get Student By ID'
     ) as any;
     
@@ -114,7 +114,7 @@ export const studentService = {
         `)
         .eq('is_deleted', false)
         .order('created_at', { ascending: false }),
-      60000,
+      120000,
       'Get Attendance Logs'
     ) as any;
     
@@ -262,7 +262,7 @@ export const studentService = {
         (supabase as any).from('students').select('*'),
         (supabase as any).from('attendance_logs').select('*').eq('is_deleted', false).gte('created_at', start).lte('created_at', end)
       ]),
-      60000,
+      120000,
       'Get Dashboard Stats'
     ) as any[];
 
