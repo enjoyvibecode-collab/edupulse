@@ -100,6 +100,7 @@ export default function UserManagement() {
   }
 
   const filteredProfiles = profiles.filter(p => 
+    p.role !== 'platform_owner' && 
     p.full_name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
@@ -132,7 +133,7 @@ export default function UserManagement() {
         <CardHeader className="bg-white border-b border-slate-50 p-8 flex flex-row items-center justify-between">
           <div className="space-y-1">
             <CardTitle className="text-xl font-bold">Daftar Akun Terdaftar</CardTitle>
-            <CardDescription>Total {profiles.length} pengguna terdaftar di sistem.</CardDescription>
+            <CardDescription>Total {filteredProfiles.length} staf & guru terdaftar di sistem.</CardDescription>
           </div>
           <div className="relative w-72">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
