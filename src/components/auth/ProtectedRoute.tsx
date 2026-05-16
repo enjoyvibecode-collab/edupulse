@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, profile, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -21,12 +21,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // Check if profile is loaded and verified
-  const { profile } = useAuth()
-  
   if (profile && !profile.is_verified && profile.role !== 'platform_owner' && location.pathname !== '/pending-verification') {
+    console.log('Account not verified, redirecting to pending page');
     return <Navigate to="/pending-verification" replace />
   }
 
+  // If on pending page but verified, redirect to dashboard handled by PendingVerification component
+  
   return <>{children}</>
 }

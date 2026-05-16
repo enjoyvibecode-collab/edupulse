@@ -5,8 +5,16 @@ import { Button } from "@/components/ui/button"
 import { useNavigate } from "react-router-dom"
 
 export default function PendingVerification() {
-  const { profile, signOut } = useAuth()
+  const { profile, signOut, loading } = useAuth()
   const navigate = useNavigate()
+
+  // Auto-redirect if verified
+  React.useEffect(() => {
+    if (!loading && profile?.is_verified) {
+      console.log('User is verified, redirecting to dashboard...')
+      navigate('/', { replace: true })
+    }
+  }, [profile, loading, navigate])
 
   const handleSignOut = async () => {
     await signOut()
