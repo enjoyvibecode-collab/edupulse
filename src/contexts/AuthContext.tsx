@@ -19,9 +19,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const isMounted = React.useRef(true)
 
   useEffect(() => {
-    let isMounted = true;
+    isMounted.current = true;
 
     // Get initial session
     const initAuth = async () => {
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (error) throw error;
         
-        if (isMounted) {
+        if (isMounted.current) {
           setSession(session);
           setUser(session?.user ?? null);
           
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('Final auth initialization error:', error);
       } finally {
-        if (isMounted) {
+        if (isMounted.current) {
           setLoading(false);
         }
       }
@@ -67,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed event:', event);
       
-      if (!isMounted) return;
+      if (!isMounted.current) return;
 
       setSession(session);
       setUser(session?.user ?? null);
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      isMounted = false;
+      isMounted.current = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -109,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      if (isMounted) {
+      if (isMounted.current) {
         setProfile(data);
         console.log('Profile loaded:', data?.role);
       }
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error in fetchProfile:', error.message);
       // Don't leak the raw error to UI but ensure we aren't stuck loading
     } finally {
-      if (isMounted) {
+      if (isMounted.current) {
         setLoading(false);
       }
     }
