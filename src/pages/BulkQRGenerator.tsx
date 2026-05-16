@@ -108,37 +108,54 @@ export default function BulkQRGenerator() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-10 min-h-screen bg-slate-50/30">
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* Hide everything by default */
-          body * {
-            visibility: hidden !important;
+          /* Hide app layout elements */
+          nav, aside, header, footer, .no-print, [role="navigation"] {
+            display: none !important;
           }
-          /* Only show the print container and its children */
-          .print-container, .print-container * {
-            visibility: visible !important;
+          
+          /* Reset main container padding/margin for print */
+          main, .flex-1 {
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
           }
-          /* Position the print container at the top */
+
+          body, html {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* Grid layout for printing QR cards */
           .print-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
             display: grid !important;
             grid-template-columns: repeat(4, 1fr) !important;
-            gap: 15px !important;
+            gap: 10mm !important;
             padding: 10mm !important;
-            background: white !important;
+            width: 100% !important;
           }
+
           /* Card specific print styles */
           .qr-card {
-            border: 1px solid #ddd !important;
+            border: 1px solid #eee !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
-            margin-bottom: 5px !important;
             padding: 15px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: white !important;
             border-radius: 8px !important;
           }
-          .no-print {
-            display: none !important;
+
+          /* Small adjustments for list mode print if needed */
+          .space-y-2.print-container {
+            display: block !important;
+          }
+          .space-y-2.print-container .qr-card {
+            margin-bottom: 5mm !important;
+            flex-direction: row !important;
           }
         }
       `}} />
@@ -248,25 +265,29 @@ export default function BulkQRGenerator() {
 }
 
 function QRCard({ student, mode }: { student: Student, mode: "grid" | "list", key?: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [qrUrl, setQrUrl] = useState<string>("")
 
   useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, student.nisn, {
-        width: mode === "grid" ? 140 : 80,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      })
-    }
+    QRCode.toDataURL(student.nisn, {
+      width: mode === "grid" ? 300 : 150,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    })
+    .then(url => setQrUrl(url))
+    .catch(err => console.error(err))
   }, [student.nisn, mode])
 
   if (mode === "list") {
     return (
       <div className="flex items-center gap-4 p-3 bg-white border rounded-xl qr-card">
-        <canvas ref={canvasRef} className="w-16 h-16 shrink-0" />
+        {qrUrl ? (
+          <img src={qrUrl} className="w-16 h-16 shrink-0" alt={`QR ${student.nisn}`} />
+        ) : (
+          <div className="w-16 h-16 bg-slate-100 animate-pulse rounded-lg shrink-0" />
+        )}
         <div className="flex-1">
           <h4 className="font-bold text-slate-900 text-sm leading-tight">{student.full_name}</h4>
           <p className="text-[10px] font-mono text-slate-500">NISN: {student.nisn}</p>
@@ -279,7 +300,11 @@ function QRCard({ student, mode }: { student: Student, mode: "grid" | "list", ke
   return (
     <div className="flex flex-col items-center p-4 bg-white border rounded-2xl text-center qr-card">
       <div className="bg-slate-50 p-2 rounded-xl mb-3">
-        <canvas ref={canvasRef} className="w-full max-w-[120px]" />
+        {qrUrl ? (
+          <img src={qrUrl} className="w-full max-w-[120px] mx-auto" alt={`QR ${student.nisn}`} />
+        ) : (
+          <div className="w-[120px] h-[120px] bg-slate-100 animate-pulse rounded-lg" />
+        )}
       </div>
       <h4 className="font-bold text-slate-900 text-xs leading-tight mb-1 line-clamp-1">{student.full_name}</h4>
       <p className="text-[9px] font-mono text-slate-500 mb-2">{student.nisn}</p>
