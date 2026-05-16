@@ -24,7 +24,9 @@ const isValidUrl = (url: string) => {
 const isConfigured = !!supabaseUrl && isValidUrl(supabaseUrl) && !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key';
 
 if (!isConfigured && typeof window !== 'undefined') {
-  console.warn('Supabase is not fully configured. URL:', supabaseUrl, 'Key set:', !!supabaseAnonKey);
+  console.error('Supabase CRITICAL CONFIG ERROR: URL or Key is missing or invalid.');
+  console.log('Current URL:', supabaseUrl || 'MISSING');
+  console.log('Anon Key Present:', !!supabaseAnonKey);
 }
 
 export const supabase = createClient<Database>(
@@ -34,7 +36,21 @@ export const supabase = createClient<Database>(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      storageKey: 'edupulse-auth-token',
+      flowType: 'pkce'
+    },
+    global: {
+      headers: { 'x-application-name': 'edupulse' },
+      fetch: (...args) => {
+        return fetch(...args).catch(err => {
+          if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+            console.error('CORTEX NETWORK ERROR: Likely CORS or Connectivity issue.', err);
+            throw new Error('Gagal terhubung ke server (Failed to fetch). Periksa koneksi internet Anda atau pastikan URL Supabase dapat diakses.');
+          }
+          throw err;
+        });
+      }
     }
   }
 );

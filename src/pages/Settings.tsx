@@ -14,13 +14,18 @@ import {
   Globe,
   Trash2,
   AlertTriangle,
-  Lock
+  Lock,
+  X
 } from "lucide-react"
 import { toast } from "sonner"
 import { SCHOOL_ZONE } from "@/lib/geoUtils"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function Settings() {
+  const { profile } = useAuth()
+  const isAdmin = profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah'
+  
   const [geoConfig, setGeoConfig] = useState({
     latitude: SCHOOL_ZONE.latitude,
     longitude: SCHOOL_ZONE.longitude,
@@ -31,6 +36,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const [showConfirmReset, setShowConfirmReset] = useState(false)
+  const [confirmValue, setConfirmValue] = useState("")
 
   useEffect(() => {
     fetchSettings()
@@ -84,19 +91,15 @@ export default function Settings() {
   }
 
   const handleResetData = async () => {
-    const confirmText = "HAPUS DATA PERMANEN"
-    const input = prompt(`PERINGATAN: Tindakan ini akan menghapus SELURUH data siswa dan riwayat absensi secara permanen. Ketik "${confirmText}" untuk mengonfirmasi:`)
-    
-    if (input !== confirmText) {
-      if (input !== null) {
-        toast.error("Konfirmasi tidak cocok. Penghapusan dibatalkan.")
-      }
+    const expectedText = "HAPUS DATA PERMANEN"
+    if (confirmValue !== expectedText) {
+      toast.error("Konfirmasi tidak cocok. Pastikan Anda mengetik dengan benar.")
       return
     }
 
     setResetting(true)
     try {
-      // 1. Delete all attendance logs first (though cascade handles it, we do it for clarity)
+      // 1. Delete all attendance logs
       const { error: attError } = await supabase
         .from('attendance_logs')
         .delete()
@@ -113,9 +116,11 @@ export default function Settings() {
       if (studentError) throw studentError
 
       toast.success("Seluruh data berhasil dihapus permanen!")
+      setShowConfirmReset(false)
+      setConfirmValue("")
     } catch (error: any) {
       console.error('Error resetting data:', error.message)
-      toast.error("Gagal menghapus data: " + error.message)
+      toast.error("Gagal menghapus data: " + (error.message || "Pastikan Anda memiliki izin akses penuh"))
     } finally {
       setResetting(false)
     }
@@ -228,38 +233,79 @@ export default function Settings() {
           </Card>
 
           {/* Danger Zone */}
-          <Card className="border-2 border-rose-100 shadow-sm rounded-3xl overflow-hidden bg-rose-50/30">
-            <CardHeader className="bg-rose-50 border-b border-rose-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-rose-500/10 rounded-xl text-rose-600">
-                  <AlertTriangle size={20} />
+          {isAdmin && (
+            <Card className="border-2 border-rose-100 shadow-sm rounded-3xl overflow-hidden bg-rose-50/30">
+              <CardHeader className="bg-rose-50 border-b border-rose-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-rose-500/10 rounded-xl text-rose-600">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg text-rose-700">Zona Bahaya</CardTitle>
+                    <CardDescription className="text-rose-600/80">Tindakan kritis yang berdampak pada integritas data.</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg text-rose-700">Zona Bahaya</CardTitle>
-                  <CardDescription className="text-rose-600/80">Tindakan kritis yang berdampak pada integritas data.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-rose-100 shadow-sm">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-800">Reset Semua Data Siswa & Absensi</p>
+                    <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+                      Menghapus seluruh daftar siswa dan semua riwayat log kehadiran yang ada dalam sistem. Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                  </div>
+                  
+                  {!showConfirmReset ? (
+                    <Button 
+                      variant="destructive" 
+                      onClick={() => setShowConfirmReset(true)}
+                      className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 h-11 px-6 shrink-0 shadow-lg shadow-rose-200"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Hapus Semua
+                    </Button>
+                  ) : (
+                    <div className="flex flex-col gap-3 w-full md:w-auto min-w-[280px]">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-rose-600">
+                          Ketik "HAPUS DATA PERMANEN"
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={confirmValue}
+                            onChange={(e) => setConfirmValue(e.target.value)}
+                            placeholder="Ketik konfirmasi..."
+                            className="h-10 rounded-xl border-rose-200 focus:ring-rose-500/20 text-sm"
+                            autoFocus
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => {
+                              setShowConfirmReset(false)
+                              setConfirmValue("")
+                            }}
+                            className="rounded-xl text-slate-400 hover:text-slate-600 shrink-0"
+                          >
+                            <X size={18} />
+                          </Button>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="destructive" 
+                        onClick={handleResetData}
+                        disabled={resetting || confirmValue !== "HAPUS DATA PERMANEN"}
+                        className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 h-10 w-full shadow-lg shadow-rose-200"
+                      >
+                        {resetting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        {resetting ? "Menghapus..." : "Konfirmasi Hapus"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-rose-100 shadow-sm">
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-800">Reset Semua Data Siswa & Absensi</p>
-                  <p className="text-xs text-slate-500 leading-relaxed max-w-md">
-                    Menghapus seluruh daftar siswa dan semua riwayat log kehadiran yang ada dalam sistem. Tindakan ini tidak dapat dibatalkan.
-                  </p>
-                </div>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleResetData}
-                  disabled={resetting}
-                  className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 h-11 px-6 shrink-0 shadow-lg shadow-rose-200"
-                >
-                  {resetting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                  {resetting ? "Memproses..." : "Hapus Semua"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar Settings Panel */}
