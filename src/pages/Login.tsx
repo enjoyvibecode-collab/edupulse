@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { GraduationCap, LogIn, Loader2, AlertCircle, Search } from "lucide-react"
 import { supabase, withTimeout } from "@/lib/supabase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 export default function Login() {
   const [email, setEmail] = useState("")
