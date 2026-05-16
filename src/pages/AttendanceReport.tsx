@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/table"
 import * as XLSX from "xlsx"
 import { jsPDF } from "jspdf"
-import "jspdf-autotable"
+import autoTable from "jspdf-autotable"
 
 // Extending jsPDF with autotable types
 declare module 'jspdf' {
@@ -143,6 +143,19 @@ export default function AttendanceReport() {
       })
 
       const ws = XLSX.utils.json_to_sheet(data)
+      
+      // Mengatur lebar kolom agar profesional (wch = width in characters)
+      const colWidths = [
+        { wch: 30 }, // Nama Siswa
+        { wch: 15 }, // NISN
+        { wch: 12 }, // Kelas
+      ]
+      
+      // Tambahkan lebar untuk kolom tanggal (rata-rata 6 karakter)
+      days.forEach(() => colWidths.push({ wch: 6 }))
+      
+      ws['!cols'] = colWidths
+
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, "Laporan Absensi")
       
@@ -177,13 +190,28 @@ export default function AttendanceReport() {
         s.logs.filter(l => l.status === 'pulang').length,
       ])
 
-      doc.autoTable({
+      autoTable(doc, {
         startY: 45,
         head: [['No', 'Nama Siswa', 'NISN', 'Kelas', 'Hadir Pagi', 'Dzuhur', 'Pulang']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229] },
-        styles: { fontSize: 9 }
+        headStyles: { 
+          fillColor: [79, 70, 229],
+          halign: 'center',
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        styles: { 
+          fontSize: 9,
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 10 },
+          1: { fontStyle: 'bold' },
+          4: { halign: 'center' },
+          5: { halign: 'center' },
+          6: { halign: 'center' },
+        }
       })
 
       doc.save(`Laporan_Absensi_${selectedClass}_${start}_${end}.pdf`)
