@@ -14,13 +14,7 @@ import {
   SidebarGroupLabel,
 } from "@/components/ui/sidebar"
 
-const menuItems = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { title: "Students", icon: Users, path: "/students" },
-  { title: "Attendance", icon: Clock, path: "/attendance" },
-  { title: "AI Scanner", icon: Scan, path: "/scanner" },
-  { title: "Settings", icon: Settings, path: "/settings" },
-]
+const adminItemsPlaceholder = [] // This is just a marker for removal point
 
 export function AppSidebar() {
   const location = useLocation()
@@ -40,6 +34,19 @@ export function AppSidebar() {
     }
   }
 
+  const adminItems = (profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah') 
+    ? [{ title: "User Management", icon: Users, path: "/users" }]
+    : []
+
+  const finalMenuItems = [
+    { title: "Dashboard", icon: LayoutDashboard, path: "/" },
+    ...adminItems,
+    { title: "Students", icon: Users, path: "/students" },
+    { title: "Attendance", icon: Clock, path: "/attendance" },
+    { title: "AI Scanner", icon: Scan, path: "/scanner" },
+    { title: "Settings", icon: Settings, path: "/settings" },
+  ]
+
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarHeader className="p-4 flex flex-row items-center gap-3 border-b">
@@ -56,7 +63,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="px-4 text-[10px] uppercase tracking-widest font-bold opacity-50">Menu Utama</SidebarGroupLabel>
           <SidebarMenu className="px-2">
-            {menuItems.map((item) => (
+            {finalMenuItems.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                   render={

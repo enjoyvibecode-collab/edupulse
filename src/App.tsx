@@ -11,6 +11,8 @@ import Attendance from "./pages/Attendance"
 import AIScanner from "./pages/AIScanner"
 import Settings from "./pages/Settings"
 import Login from "./pages/Login"
+import ParentCheck from "./pages/ParentCheck"
+import UserManagement from "./pages/UserManagement"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "./contexts/AuthContext"
@@ -24,6 +26,7 @@ export default function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/parent-check" element={<ParentCheck />} />
 
             {/* Protected Dashboard Routes */}
             <Route 
@@ -32,6 +35,17 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Dashboard />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/users" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <UserManagement />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 

@@ -1,17 +1,19 @@
 import * as React from "react"
 import { useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { GraduationCap, LogIn, Loader2, AlertCircle } from "lucide-react"
+import { GraduationCap, LogIn, Loader2, AlertCircle, Search } from "lucide-react"
 import { supabase, withTimeout } from "@/lib/supabase"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -19,26 +21,46 @@ export default function Login() {
   const location = useLocation()
   const from = location.state?.from?.pathname || "/"
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      const { error: authError } = await withTimeout(
-        supabase.auth.signInWithPassword({
+      if (isRegister) {
+        // Handle Registration
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
-        }),
-        30000,
-        'Autentikasi'
-      );
+          options: {
+            data: {
+              full_name: fullName
+            }
+          }
+        })
 
-      if (authError) throw authError
-      
-      navigate(from, { replace: true })
+        if (authError) throw authError
+        
+        if (authData.user) {
+          toast.success("Akun berhasil dibuat! Silakan login.")
+          setIsRegister(false)
+        }
+      } else {
+        // Handle Login
+        const { error: authError } = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email,
+            password,
+          }),
+          30000,
+          'Autentikasi'
+        );
+
+        if (authError) throw authError
+        navigate(from, { replace: true })
+      }
     } catch (err: any) {
-      setError(err.message || "Gagal masuk. Silakan periksa email dan kata sandi Anda.")
+      setError(err.message || "Gagal memproses permintaan Anda.")
     } finally {
       setLoading(false)
     }
@@ -59,11 +81,15 @@ export default function Login() {
 
         <Card className="border-none shadow-2xl shadow-slate-200/60 overflow-hidden">
           <CardHeader className="space-y-1 bg-white">
-            <CardTitle className="text-xl">Selamat Datang Kembali</CardTitle>
-            <CardDescription>Masukkan kredensial Anda untuk masuk ke sistem.</CardDescription>
+            <CardTitle className="text-xl">{isRegister ? "Daftar Akun Baru" : "Selamat Datang Kembali"}</CardTitle>
+            <CardDescription>
+              {isRegister 
+                ? "Lengkapi data untuk membuat akun baru di sistem." 
+                : "Masukkan kredensial Anda untuk masuk ke sistem."}
+            </CardDescription>
           </CardHeader>
           
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4 pt-4">
               {error && (
                 <Alert variant="destructive" className="bg-destructive/5 text-destructive border-destructive/20">
@@ -72,6 +98,21 @@ export default function Login() {
                 </Alert>
               )}
               
+              {isRegister && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Nama Lengkap</Label>
+                  <Input 
+                    id="fullName" 
+                    placeholder="Contoh: Bpk. Junaedi" 
+                    className="h-11 bg-slate-50 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/20" 
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input 
@@ -90,13 +131,15 @@ export default function Login() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Kata Sandi</Label>
-                  <button type="button" className="text-xs text-primary font-bold hover:underline">Lupa sandi?</button>
+                  {!isRegister && (
+                    <button type="button" className="text-xs text-primary font-bold hover:underline">Lupa sandi?</button>
+                  )}
                 </div>
                 <Input 
                   id="password" 
                   name="password"
                   type="password" 
-                  autoComplete="current-password"
+                  autoComplete={isRegister ? "new-password" : "current-password"}
                   className="h-11 bg-slate-50 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/20" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -116,11 +159,29 @@ export default function Login() {
                 ) : (
                   <LogIn className="mr-2 h-5 w-5" />
                 )}
-                {loading ? "Memproses..." : "Masuk Sekarang"}
+                {loading ? "Memproses..." : (isRegister ? "Daftar Akun" : "Masuk Sekarang")}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                Butuh bantuan? Hubungi <span className="text-primary font-bold cursor-pointer hover:underline">Tim IT Sekolah</span>
-              </p>
+
+              <button 
+                type="button"
+                onClick={() => setIsRegister(!isRegister)}
+                className="text-xs text-slate-500 font-medium hover:text-primary transition-colors"
+              >
+                {isRegister ? "Sudah punya akun? Masuk di sini" : "Belum punya akun? Daftar Sekarang"}
+              </button>
+          <div className="flex flex-col gap-4 w-full">
+            <Link 
+              to="/parent-check" 
+              className="w-full h-11 bg-white text-indigo-600 border border-indigo-100 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center rounded-xl"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              Cek Kehadiran (Untuk Orang Tua)
+            </Link>
+            
+            <p className="text-center text-xs text-muted-foreground">
+              Butuh bantuan? Hubungi <span className="text-indigo-600 font-bold cursor-pointer hover:underline">Tim IT Sekolah</span>
+            </p>
+          </div>
             </CardFooter>
           </form>
         </Card>

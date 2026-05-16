@@ -146,11 +146,11 @@ ON public.profiles FOR SELECT
 TO authenticated
 USING (true);
 
--- Profiles: Platform owners can manage all profiles
-CREATE POLICY "Platform owners can manage profiles"
+-- Profiles: Admins can manage profiles
+CREATE POLICY "Admins can manage profiles"
 ON public.profiles FOR ALL
 TO authenticated
-USING (public.is_platform_owner());
+USING (public.is_admin_or_owner());
 
 -- Students: Authenticated users can view students
 CREATE POLICY "Authenticated users can view students"

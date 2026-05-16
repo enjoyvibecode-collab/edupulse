@@ -11,9 +11,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
   const location = useLocation()
 
+  const adminMobileItems = (profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah')
+    ? [{ title: "Users", icon: Users, path: "/users" }]
+    : []
+
   const mobileMenuItems = [
     { title: "Home", icon: LayoutDashboard, path: "/" },
-    { title: "Siswa", icon: Users, path: "/students" },
+    ...adminMobileItems,
+    { title: "Students", icon: Users, path: "/students" },
     { title: "Scan", icon: Scan, path: "/scanner" },
     { title: "Absen", icon: Clock, path: "/attendance" },
     { title: "Set", icon: Settings, path: "/settings" },

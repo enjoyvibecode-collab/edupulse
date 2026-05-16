@@ -36,12 +36,57 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
+  const [seeding, setSeeding] = useState(false)
   const [showConfirmReset, setShowConfirmReset] = useState(false)
   const [confirmValue, setConfirmValue] = useState("")
 
   useEffect(() => {
     fetchSettings()
   }, [])
+
+  const handleSeedData = async () => {
+    setSeeding(true)
+    try {
+      // 1. Create Mock Students
+      const mockStudents = [
+        { nisn: '1234567801', full_name: 'Ahmad Subarjo', class_name: '9A' },
+        { nisn: '1234567802', full_name: 'Siti Aminah', class_name: '9B' },
+        { nisn: '1234567803', full_name: 'Budi Hartanto', class_name: '9A' },
+        { nisn: '1234567804', full_name: 'Dewi Lestari', class_name: '8C' },
+        { nisn: '1234567805', full_name: 'Eko Prasetyo', class_name: '7F' },
+      ]
+
+      const { data: insertedStudents, error: studentError } = await supabase
+        .from('students')
+        .insert(mockStudents)
+        .select()
+
+      if (studentError) throw studentError
+
+      // 2. Create Today's Logs for some students
+      if (insertedStudents && insertedStudents.length > 0) {
+        const today = new Date()
+        const mockLogs = [
+          { student_id: insertedStudents[0].id, status: 'hadir_pagi', confidence: 0.98, created_at: today.toISOString() },
+          { student_id: insertedStudents[1].id, status: 'hadir_pagi', confidence: 0.95, created_at: today.toISOString() },
+          { student_id: insertedStudents[0].id, status: 'dzuhur', confidence: 0.92, created_at: new Date(today.getTime() + 4 * 3600000).toISOString() },
+        ]
+
+        const { error: logError } = await supabase
+          .from('attendance_logs')
+          .insert(mockLogs)
+
+        if (logError) throw logError
+      }
+
+      toast.success("5 Siswa & Riwayat Absensi berhasil dibuat (Mock Data)!")
+    } catch (error: any) {
+      console.error('Error seeding data:', error)
+      toast.error("Gagal membuat mock data: " + error.message)
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   async function fetchSettings() {
     try {
@@ -247,6 +292,23 @@ export default function Settings() {
                 </div>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-rose-100 shadow-sm">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-800">Generate Mock Data</p>
+                    <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+                      Membuat data siswa dan log kehadiran acak untuk keperluan testing dan demo aplikasi.
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleSeedData}
+                    disabled={seeding}
+                    className="rounded-xl font-bold bg-white border border-indigo-200 text-indigo-600 hover:bg-slate-50 h-11 px-6 shrink-0 shadow-sm"
+                  >
+                    {seeding ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                    {seeding ? "Memproses..." : "Buat Mock Data"}
+                  </Button>
+                </div>
+
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-rose-100 shadow-sm">
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-slate-800">Reset Semua Data Siswa & Absensi</p>
