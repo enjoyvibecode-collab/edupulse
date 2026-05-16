@@ -20,51 +20,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const isMounted = React.useRef(true)
+  const fetchingProfileFor = React.useRef<string | null>(null)
 
   useEffect(() => {
     isMounted.current = true;
 
-    // Get initial session
-    const initAuth = async () => {
-      console.log('Starting auth initialization...');
-      
-      try {
-        // First try to get the session with a reasonable timeout
-        // If it times out, we don't throw immediately, we'll wait for onAuthStateChange
-        console.log('Fetching initial session...');
-        const sessionResult = await withTimeout(
-          supabase.auth.getSession(),
-          20000, // 20s initial attempt
-          'Initial Session Fetch'
-        ).catch(err => {
-          console.warn('Initial session fetch timed out/failed, waiting for auth state change:', err.message);
-          return { data: { session: null }, error: null };
-        });
-
-        const { data: { session }, error } = sessionResult as any;
-        
-        if (error) throw error;
-        
-        if (isMounted.current) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          }
-        }
-      } catch (error) {
-        console.error('Final auth initialization error:', error);
-      } finally {
-        if (isMounted.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth changes - this is the most reliable source
+    // Listen for auth changes - this is the most reliable source for everything
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed event:', event);
       
@@ -74,12 +35,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // If we already have a profile for this user, and we're not currently fetching one, 
+        // we might not need to fetch again immediately unless it's a specific event
         await fetchProfile(session.user.id);
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
+
+    // We still call initAuth to handle the very first load properly in case onAuthStateChange is slow
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (isMounted.current && session?.user) {
+          setSession(session);
+          setUser(session.user);
+          await fetchProfile(session.user.id);
+        } else if (isMounted.current && !session) {
+          // If no session from getSession, check if we're still loading 
+          // (onAuthStateChange might still fire)
+          // We wait a tiny bit to see if onAuthStateChange handles it
+          setTimeout(() => {
+            if (isMounted.current && !supabase.auth.getUser()) {
+              setLoading(false);
+            }
+          }, 1000);
+        }
+      } catch (err) {
+        console.error('Init auth error:', err);
+        if (isMounted.current) setLoading(false);
+      }
+    };
+
+    initAuth();
 
     return () => {
       isMounted.current = false;
@@ -90,8 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function fetchProfile(userId: string) {
     if (!userId) return;
     
-    // Prevent multiple concurrent fetches for the same user if possible
-    // (though in this context we'll just handle it gracefully)
+    // Deduplicate concurrent fetches for the same user
+    if (fetchingProfileFor.current === userId) {
+      console.log('Profile fetch already in progress for:', userId);
+      return;
+    }
+    
+    fetchingProfileFor.current = userId;
     
     try {
       console.log('Fetching profile for:', userId);
@@ -100,24 +94,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('*')
           .eq('id', userId)
-          .maybeSingle(), // Use maybeSingle to avoid 406 errors on "not found"
-        20000, // 20s is more than enough, better to fail faster than 45s
+          .maybeSingle(),
+        25000, 
         'Profile Fetch'
       ) as any;
 
-      if (error) {
-        console.error('Database error in fetchProfile:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       if (isMounted.current) {
         setProfile(data);
-        console.log('Profile loaded:', data?.role);
+        console.log('Profile loaded successfully');
       }
     } catch (error: any) {
       console.error('Error in fetchProfile:', error.message);
-      // Don't leak the raw error to UI but ensure we aren't stuck loading
     } finally {
+      fetchingProfileFor.current = null;
       if (isMounted.current) {
         setLoading(false);
       }
