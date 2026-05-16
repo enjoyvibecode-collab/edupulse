@@ -90,15 +90,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('Fetching profile for:', userId);
-      const { data, error } = await withTimeout(
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle(),
-        60000, // Naikkan ke 60 detik untuk koneksi lambat
-        'Profile Fetch'
-      ) as any;
+      
+      // Retry logic for profile fetch
+      let data = null;
+      let error = null;
+      let attempts = 0;
+      const maxAttempts = 2;
+
+      while (attempts < maxAttempts) {
+        try {
+          const result = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', userId)
+              .maybeSingle(),
+            attempts === 0 ? 60000 : 90000, // Increase timeout on retry
+            'Profile Fetch'
+          ) as any;
+          
+          data = result.data;
+          error = result.error;
+          
+          if (!error) break; // Success
+        } catch (err: any) {
+          error = err;
+          // If it's a timeout, we retry
+          if (err.message.includes('timeout') && attempts < maxAttempts - 1) {
+            console.warn(`Profile fetch attempt ${attempts + 1} timed out, retrying...`);
+          } else {
+            throw err;
+          }
+        }
+        attempts++;
+      }
 
       if (error) throw error;
       
@@ -108,6 +133,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       console.error('Error in fetchProfile:', error.message);
+      // Optional: show a user-friendly toast if it's a persistent timeout
+      if (error.message.includes('timeout')) {
+        // We'll let the user know, but they might be able to use basic features
+        console.warn('Profile fetch failed due to timeout. Some features may be limited.');
+      }
     } finally {
       fetchingProfileFor.current = null;
       if (isMounted.current) {
