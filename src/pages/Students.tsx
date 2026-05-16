@@ -124,21 +124,21 @@ export default function Students() {
       // 4. Nama Siswa (Putih)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(15);
       const nameParts = student.full_name.split(' ');
       const displayName = nameParts.length > 2 ? nameParts.slice(0, 2).join(' ') : student.full_name;
-      doc.text(displayName.toUpperCase(), cardW / 2, 68, { align: 'center' });
+      doc.text(displayName.toUpperCase(), cardW / 2, 63, { align: 'center' });
 
       // 5. Nama Sekolah (Gold)
       doc.setTextColor(184, 146, 96);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text("SMPN 1 MANONJAYA", cardW / 2, 73, { align: 'center' });
+      doc.text("SMPN 1 MANONJAYA", cardW / 2, 68, { align: 'center' });
 
       // 6. Footer Layout (Garis Putih Tipis - Manual Color for Opacity Effect)
-      doc.setDrawColor(100, 105, 125); // Simulasi Putih Transparan di atas Navy
+      doc.setDrawColor(80, 90, 120); // Warna navy keabu-abuan untuk simulasi garis tipis
       doc.setLineWidth(0.3);
-      doc.line(4, 77, cardW - 4, 77); 
+      doc.line(5, 72, cardW - 5, 72); 
 
       // 7. Bagian Bawah: QR Code (Kiri) & Logo/Info (Kanan)
       try {
@@ -153,25 +153,25 @@ export default function Students() {
           }
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 6, 79, 12, 12);
+        doc.addImage(qrDataUrl, 'PNG', 6, 74, 9, 9);
       } catch (err) {
         console.error("QR Error", err);
       }
 
       // Vertical Divider (Manual Color)
-      doc.setDrawColor(100, 105, 125);
-      doc.line(22, 79, 22, 91);
+      doc.setDrawColor(80, 90, 120);
+      doc.line(18, 74, 18, 83);
 
       // School Branding (NESATMA)
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text("NESATMA", 25, 85);
+      doc.text("NESATMA", 21, 79);
       
       doc.setTextColor(184, 146, 96); // Gold
-      doc.setFontSize(7);
+      doc.setFontSize(6);
       doc.setFont('helvetica', 'normal');
-      doc.text("ID CARD", 25, 88);
+      doc.text("ID CARD", 21, 82);
 
       // Simpan File
       doc.save(`ID_CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
