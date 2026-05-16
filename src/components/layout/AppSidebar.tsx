@@ -1,5 +1,5 @@
 import * as React from "react"
-import { LayoutDashboard, Users, Clock, Settings, LogOut, GraduationCap, Loader2, Scan, FileText } from "lucide-react"
+import { LayoutDashboard, Users, Clock, Settings, LogOut, GraduationCap, Loader2, Scan, FileText, QrCode } from "lucide-react"
 import { useLocation, Link, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import {
@@ -42,6 +42,7 @@ export function AppSidebar() {
     { title: "Dashboard", icon: LayoutDashboard, path: "/" },
     ...adminItems,
     { title: "Students", icon: Users, path: "/students" },
+    { title: "Bulk QR Generate", icon: QrCode, path: "/students/bulk-qr" },
     { title: "Attendance", icon: Clock, path: "/attendance" },
     { title: "Reports", icon: FileText, path: "/reports" },
     { title: "AI Scanner", icon: Scan, path: "/scanner" },

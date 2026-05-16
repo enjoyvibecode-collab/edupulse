@@ -34,8 +34,9 @@ import {
   XCircle,
   FileSpreadsheet,
   Sparkles,
-  CreditCard
+  QrCode
 } from "lucide-react"
+import { Link } from "react-router-dom"
 import { 
   Dialog, 
   DialogContent, 
@@ -68,49 +69,6 @@ export default function Students() {
   const [importing, setImporting] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
   const [selectedForFace, setSelectedForFace] = useState<Student | null>(null)
-  const [exportingStudent, setExportingStudent] = useState<Student | null>(null)
-  const cardTemplateRef = useRef<HTMLDivElement>(null)
-  const qrRef = useRef<HTMLCanvasElement>(null)
-
-  const generateIDCard = async (student: Student) => {
-    try {
-      setExportingStudent(student)
-      
-      // Tunggu render template selesai dan gambar di-load
-      setTimeout(async () => {
-        if (!cardTemplateRef.current) {
-          toast.error("Template kartu tidak ditemukan")
-          return
-        }
-
-        const canvas = await html2canvas(cardTemplateRef.current, {
-          useCORS: true,
-          scale: 3, // High quality, balance with speed
-          backgroundColor: null,
-          logging: false,
-        })
-
-        const imgData = canvas.toDataURL('image/png')
-        
-        // Export ke PDF
-        const pdf = new jsPDF({
-          orientation: 'p',
-          unit: 'mm',
-          format: [54, 85.6]
-        })
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, 54, 85.6)
-        pdf.save(`ID-CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
-        
-        setExportingStudent(null)
-        toast.success("ID Card Premium Modern berhasil diunduh")
-      }, 800) 
-    } catch (error: any) {
-      console.error("Export Error:", error)
-      toast.error("Gagal eksport kartu: " + (error.message || "Unknown Error"))
-      setExportingStudent(null)
-    }
-  }
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -237,13 +195,22 @@ export default function Students() {
           <p className="text-muted-foreground">Kelola data induk siswa, wali murid, dan dokumentasi foto.</p>
         </div>
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline"
-            onClick={() => setIsBulkImportOpen(true)}
-            className="w-full md:w-auto border-primary/20 text-primary hover:bg-primary/5 transition-all h-11 font-bold rounded-xl"
-          >
-            <Upload className="mr-2 h-4 w-4" /> Import Excel
-          </Button>
+            <Button 
+              variant="outline"
+              asChild
+              className="w-full md:w-auto bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all h-11 font-bold rounded-xl"
+            >
+              <Link to="/students/bulk-qr">
+                <QrCode className="mr-2 h-4 w-4" /> Bulk QR Generate
+              </Link>
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setIsBulkImportOpen(true)}
+              className="w-full md:w-auto border-primary/20 text-primary hover:bg-primary/5 transition-all h-11 font-bold rounded-xl"
+            >
+              <Upload className="mr-2 h-4 w-4" /> Import Excel
+            </Button>
           <Button 
             onClick={handleAdd}
             className="w-full md:w-auto bg-primary text-white shadow-lg shadow-primary/20 hover:shadow-none transition-all h-11 font-bold rounded-xl"
@@ -362,19 +329,13 @@ export default function Students() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-[180px] p-2 space-y-1">
                               <DropdownMenuItem 
-                                onClick={() => generateIDCard(student)}
-                                className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50"
-                              >
-                                <CreditCard className="mr-2 h-4 w-4" /> Cetak Kartu QR
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
                                 onClick={() => {
                                   setSelectedForFace(student)
                                   setIsFaceModalOpen(true)
                                 }}
                                 className="font-bold text-xs p-2.5 cursor-pointer rounded-lg text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
                               >
-                                <Sparkles className="mr-2 h-4 w-4" /> Register Face
+                                <Sparkles className="mr-2 h-4 w-4" /> Register Face AI
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleEdit(student)}
@@ -439,11 +400,8 @@ export default function Students() {
                         <MoreVertical size={18} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-[160px] p-2">
-                        <DropdownMenuItem onClick={() => generateIDCard(student)} className="font-bold text-xs p-3 text-indigo-600">
-                          <CreditCard className="mr-2 h-4 w-4" /> Cetak Kartu
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEdit(student)} className="font-bold text-xs p-3">
-                          <Edit2 className="mr-2 h-4 w-4" /> Edit
+                          <Edit2 className="mr-2 h-4 w-4" /> Edit Data
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                             setSelectedForFace(student)
@@ -504,109 +462,6 @@ export default function Students() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Hidden Card Template for Export */}
-      {exportingStudent && (
-        <div className="fixed top-[-9999px] left-[-9999px]">
-          <div 
-            ref={cardTemplateRef}
-            className="relative w-[320px] h-[510px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center shadow-2xl"
-            style={{ fontFamily: 'sans-serif' }}
-          >
-            {/* Elegant Background Accents */}
-            <div className="absolute top-0 right-0 w-40 h-40 border-[0.5px] border-[#D4A373]/20 rotate-45 translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute top-0 right-0 w-32 h-32 border-[0.5px] border-[#D4A373]/10 rotate-45 translate-x-1/2 -translate-y-1/2" />
-            
-            {/* Subtle V-Pattern at bottom */}
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full h-[0.5px] bg-[#D4A373]/20 scale-x-75" />
-            
-            {/* Header / Identity Logo (Top Center) */}
-            <div className="mt-8 mb-4">
-              <div className="flex flex-col items-center">
-                <span className="text-[#D4A373] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Identity Card</span>
-              </div>
-            </div>
-
-            {/* Photo Section with Frame Overlay */}
-            <div className="relative mt-2 mb-8 group">
-              {/* Outer Golden Glow */}
-              <div className="absolute inset-0 -m-1 rounded-full bg-[#D4A373]/20 blur-sm" />
-              
-              <div className="relative h-40 w-40 rounded-full border-2 border-[#D4A373] p-1.5 overflow-hidden bg-[#1F2554] shadow-xl">
-                 {/* Student Photo */}
-                 <div className="w-full h-full rounded-full overflow-hidden">
-                    {exportingStudent.photo_url ? (
-                      <img 
-                        src={exportingStudent.photo_url} 
-                        className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                         <Loader2 className="w-8 h-8 text-slate-600 animate-spin" />
-                      </div>
-                    )}
-                 </div>
-                 
-                 {/* Decorative Frame Overlay (Gradient ring) */}
-                 <div className="absolute inset-0 rounded-full border-[8px] border-[#1F2554] mix-blend-normal opacity-100" />
-                 <div className="absolute inset-0 rounded-full border-[2px] border-[#D4A373]/30" />
-              </div>
-              
-              {/* Frame Accent Corners */}
-              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-[0.5px] border-l-[0.5px] border-[#D4A373]/40 rounded-tl-xl" />
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-[0.5px] border-r-[0.5px] border-[#D4A373]/40 rounded-br-xl" />
-            </div>
-
-            {/* Student Info */}
-            <div className="text-center px-6 max-w-full">
-              <h2 className="text-2xl font-black text-white leading-tight uppercase tracking-tight mb-1 drop-shadow-md truncate">
-                {exportingStudent.full_name}
-              </h2>
-              <div className="flex flex-col items-center">
-                <p className="text-[#D4A373] text-[11px] font-bold tracking-[0.15em] mb-4">
-                  {exportingStudent.class_name ? `SMP NEGERI 1 MANONJAYA - ${exportingStudent.class_name}` : "SMP NEGERI 1 MANONJAYA"}
-                </p>
-              </div>
-            </div>
-
-            {/* Premium Divider */}
-            <div className="w-4/5 h-[0.5px] bg-gradient-to-r from-transparent via-[#D4A373]/40 to-transparent my-6" />
-
-            {/* Footer Section */}
-            <div className="absolute bottom-8 left-0 w-full px-8 flex items-end justify-between">
-              {/* QR Code */}
-              <div className="bg-white p-1 rounded-lg shadow-lg">
-                <canvas 
-                  ref={(el) => {
-                    if (el && exportingStudent) {
-                      QRCode.toCanvas(el, exportingStudent.nisn, {
-                        width: 70,
-                        margin: 1,
-                        color: {
-                          dark: '#1F2554',
-                          light: '#FFFFFF'
-                        }
-                      });
-                    }
-                  }} 
-                  className="w-16 h-16"
-                />
-              </div>
-
-              {/* Branding Bottom Right */}
-              <div className="text-right flex flex-col items-end">
-                <span className="text-white text-base font-black italic tracking-tighter">NESATMA</span>
-                <span className="text-[#D4A373] text-[8px] font-bold uppercase tracking-[0.2em]">Student Access ID</span>
-                <div className="mt-1 w-8 h-[2px] bg-[#D4A373]" />
-              </div>
-            </div>
-
-            {/* Gold Bottom Detail */}
-            <div className="absolute bottom-0 left-0 w-full h-1.5 bg-[#D4A373]" />
-          </div>
-        </div>
-      )}
 
       <FaceRegistrationModal
         student={selectedForFace}

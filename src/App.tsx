@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { DashboardLayout } from "./layouts/DashboardLayout"
 import Dashboard from "./pages/Dashboard"
 import Students from "./pages/Students"
+import BulkQRGenerator from "./pages/BulkQRGenerator"
 import Attendance from "./pages/Attendance"
 import AttendanceReport from "./pages/AttendanceReport"
 import AIScanner from "./pages/AIScanner"
@@ -60,6 +61,17 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <Students />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/students/bulk-qr" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <BulkQRGenerator />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
