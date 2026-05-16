@@ -70,72 +70,104 @@ export default function Students() {
 
   const generateIDCard = async (student: Student) => {
     try {
+      // Standard ID-1 size: 85.6mm x 53.98mm (Landscape)
       const doc = new jsPDF({
-        orientation: 'p',
+        orientation: 'l',
         unit: 'mm',
-        format: [85.6, 53.98] // ID-1 standard size
+        format: [85.6, 54]
       })
 
-      // Background Card
+      // 1. Desain Background & Header
       doc.setFillColor(79, 70, 229) // Indigo-600
-      doc.rect(0, 0, 85.6, 15, 'F')
+      doc.rect(0, 0, 85.6, 12, 'F')
       
       doc.setFontSize(10)
       doc.setTextColor(255, 255, 255)
       doc.setFont('helvetica', 'bold')
-      doc.text("KARTU SISWA EDUPULSE", 42.8, 8, { align: 'center' })
+      doc.text("KARTU SISWA EDUPULSE", 42.8, 7, { align: 'center' })
       doc.setFontSize(6)
-      doc.text("Smart Attendance System", 42.8, 11, { align: 'center' })
+      doc.text("Sistem Absensi Kehadiran Pintar", 42.8, 10, { align: 'center' })
 
-      // Photo
+      // 2. Area Foto (Sisi Kiri)
+      const photoX = 6
+      const photoY = 16
+      const photoW = 24
+      const photoH = 32
+      
       if (student.photo_url) {
         try {
-          doc.addImage(student.photo_url, 'JPEG', 5, 20, 25, 30)
+          doc.addImage(student.photo_url, 'JPEG', photoX, photoY, photoW, photoH)
         } catch (e) {
-          doc.setFillColor(240, 240, 240)
-          doc.rect(5, 20, 25, 30, 'F')
+          doc.setFillColor(243, 244, 246)
+          doc.rect(photoX, photoY, photoW, photoH, 'F')
+          doc.setTextColor(156, 163, 175)
+          doc.setFontSize(6)
+          doc.text("NO PHOTO", photoX + (photoW/2), photoY + (photoH/2), { align: 'center' })
         }
       } else {
-        doc.setFillColor(240, 240, 240)
-        doc.rect(5, 20, 25, 30, 'F')
+        doc.setFillColor(243, 244, 246)
+        doc.rect(photoX, photoY, photoW, photoH, 'F')
+        doc.setTextColor(156, 163, 175)
+        doc.setFontSize(6)
+        doc.text("NO PHOTO", photoX + (photoW/2), photoY + (photoH/2), { align: 'center' })
       }
 
-      // Student Info
-      doc.setTextColor(30, 41, 59) // slate-800
-      doc.setFontSize(9)
-      doc.text(student.full_name.toUpperCase(), 35, 25)
+      // 3. Data Siswa (Sisi Tengah)
+      const dataX = 34
+      doc.setTextColor(15, 23, 42) // slate-900
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.text(student.full_name.toUpperCase(), dataX, 22)
       
       doc.setFontSize(7)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(71, 85, 105) // slate-600
-      doc.text(`NISN: ${student.nisn}`, 35, 30)
-      doc.text(`Kelas: ${student.class_name}`, 35, 34)
-      doc.text(`ID: ${student.id.split('-')[0].toUpperCase()}`, 35, 38)
+      doc.text("NISN", dataX, 28)
+      doc.setTextColor(15, 23, 42)
+      doc.text(`: ${student.nisn}`, dataX + 10, 28)
 
-      // QR Code
-      const qrCanvas = document.createElement('canvas')
-      const QRCode = (await import('qrcode')).default
-      await QRCode.toCanvas(qrCanvas, student.nisn, {
-        width: 100,
-        margin: 0,
-        color: {
-          dark: '#4F46E5',
-          light: '#FFFFFF'
-        }
-      })
-      const qrDataUrl = qrCanvas.toDataURL('image/png')
-      doc.addImage(qrDataUrl, 'PNG', 35, 42, 15, 15)
+      doc.setTextColor(71, 85, 105)
+      doc.text("Kelas", dataX, 32)
+      doc.setTextColor(15, 23, 42)
+      doc.text(`: ${student.class_name}`, dataX + 10, 32)
 
-      // Footer
-      doc.setFillColor(248, 250, 252) // slate-50
-      doc.rect(0, 75, 85.6, 11, 'F')
-      doc.setFontSize(6)
-      doc.setTextColor(148, 163, 184) // slate-400
-      doc.text("Kartu ini adalah properti sekolah", 42.8, 79, { align: 'center' })
-      doc.text("Jika ditemukan mohon kembalikan ke Madrasah", 42.8, 82, { align: 'center' })
+      doc.setTextColor(71, 85, 105)
+      doc.text("Status", dataX, 36)
+      doc.setTextColor(15, 23, 42)
+      doc.text(": AKTIF", dataX + 10, 36)
+
+      // 4. QR Code (Sisi Kanan)
+      try {
+        const qrCanvas = document.createElement('canvas')
+        const QRCode = (await import('qrcode')).default
+        await QRCode.toCanvas(qrCanvas, student.nisn, {
+          width: 120,
+          margin: 0,
+          color: {
+            dark: '#1e293b', // slate-800
+            light: '#FFFFFF'
+          }
+        })
+        const qrDataUrl = qrCanvas.toDataURL('image/png')
+        doc.addImage(qrDataUrl, 'PNG', 65, 18, 16, 16)
+        
+        doc.setFontSize(5)
+        doc.setTextColor(148, 163, 184)
+        doc.text("SCAN QR FOR", 73, 36, { align: 'center' })
+        doc.text("ATTENDANCE", 73, 38, { align: 'center' })
+      } catch (err) {
+        console.error("QR Error", err)
+      }
+
+      // 5. Footer Aksentuasi
+      doc.setFillColor(79, 70, 229, 0.1)
+      doc.rect(0, 48, 85.6, 6, 'F')
+      doc.setFontSize(5.5)
+      doc.setTextColor(79, 70, 229)
+      doc.text("ID CARD INI WAJIB DIBAWA SETIAP HARI KE SEKOLAH", 42.8, 52, { align: 'center' })
 
       doc.save(`KARTU_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
-      toast.success("Kartu Siswa berhasil di-generate")
+      toast.success("Kartu Siswa (Lanskap) berhasil diunduh")
     } catch (error: any) {
       console.error("PDF Error:", error)
       toast.error("Gagal men-generate kartu: " + error.message)
