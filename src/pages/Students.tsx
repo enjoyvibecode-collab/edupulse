@@ -134,14 +134,12 @@ export default function Students() {
       doc.setFontSize(7.5);
       doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 63, { align: 'center' });
 
-      // 6. Elegant Thin Divider Line
-      doc.setDrawColor(255, 255, 255);
-      doc.setLineWidth(0.15);
-      doc.setAlpha(0.2); // Simulasi transparansi 20%
+      // 6. Elegant Thin Divider Line (Manual color blending for premium aesthetic)
+      doc.setDrawColor(70, 75, 115); // Blended navy-white for subtle divider
+      doc.setLineWidth(0.2);
       doc.line(8, 68, cardW - 8, 68);
-      doc.setAlpha(1.0);
 
-      // 7. QR Code Section (Bottom Left)
+      // 7. QR Code Section (Bottom Left - Clean & Minimal)
       try {
         const qrCanvas = document.createElement('canvas');
         const QRCode = (await import('qrcode')).default;
@@ -150,36 +148,35 @@ export default function Students() {
           margin: 1,
           color: {
             dark: '#FFFFFF',
-            light: '#1F2554' // Match navy background
+            light: '#1F2554' // Match navy background exactly
           }
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 8, 71, 9, 9);
+        doc.addImage(qrDataUrl, 'PNG', 8, 71, 10, 10);
       } catch (err) {
         console.error("QR Error", err);
       }
 
-      // 8. School Info / Brand (Bottom Right)
+      // 8. School Branding / Identity (Bottom Right)
       doc.setTextColor(white[0], white[1], white[2]);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text("NESATMA", 46, 76, { align: 'right' });
+      doc.setFontSize(10);
+      doc.text("NESATMA", 46, 77, { align: 'right' });
       
       doc.setTextColor(softGold[0], softGold[1], softGold[2]);
       doc.setFontSize(6);
       doc.setFont('helvetica', 'normal');
-      doc.text("STUDENT ACCESS ID", 46, 79, { align: 'right' });
+      doc.text("STUDENT ACCESS ID", 46, 80, { align: 'right' });
 
-      // 9. Footer Tiny Accent
+      // 9. Premium Footer Detail
       doc.setFillColor(softGold[0], softGold[1], softGold[2]);
-      doc.rect(0, 84.6, cardW, 1, 'F'); // Garis emas sangat tipis di paling bawah
+      doc.rect(0, 84.6, cardW, 1, 'F'); 
 
-      // Save
       doc.save(`ID-CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
       toast.success("ID Card Premium Modern berhasil diunduh");
     } catch (error: any) {
       console.error("PDF Error:", error);
-      toast.error("Gagal men-generate kartu: " + error.message);
+      toast.error("Gagal men-generate kartu: " + (error.message || "Unknown Error"));
     }
   };
 
