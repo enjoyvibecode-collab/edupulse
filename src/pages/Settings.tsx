@@ -49,11 +49,11 @@ export default function Settings() {
     try {
       // 1. Create Mock Students
       const mockStudents = [
-        { nisn: '1234567801', full_name: 'Ahmad Subarjo', class_name: '9A' },
-        { nisn: '1234567802', full_name: 'Siti Aminah', class_name: '9B' },
-        { nisn: '1234567803', full_name: 'Budi Hartanto', class_name: '9A' },
-        { nisn: '1234567804', full_name: 'Dewi Lestari', class_name: '8C' },
-        { nisn: '1234567805', full_name: 'Eko Prasetyo', class_name: '7F' },
+        { nisn: '1234567801', full_name: 'Ahmad Subarjo', class_name: '9A', parent_name: 'Bpk. Subarjo' },
+        { nisn: '1234567802', full_name: 'Siti Aminah', class_name: '9B', parent_name: 'Ibu Aminah' },
+        { nisn: '1234567803', full_name: 'Budi Hartanto', class_name: '9A', parent_name: 'Bpk. Hartanto' },
+        { nisn: '1234567804', full_name: 'Dewi Lestari', class_name: '8C', parent_name: 'Ibu Lestari' },
+        { nisn: '1234567805', full_name: 'Eko Prasetyo', class_name: '7F', parent_name: 'Bpk. Prasetyo' },
       ]
 
       const { data: insertedStudents, error: studentError } = await supabase

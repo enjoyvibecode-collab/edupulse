@@ -62,7 +62,9 @@ export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: numbe
   let timeoutId: any;
   const timeoutPromise = new Promise<T>((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error(`${context} timed out after ${timeoutMs}ms. Periksa koneksi internet Anda atau pastikan URL/Key Supabase sudah benar.`));
+      const errorMsg = `${context} timed out after ${timeoutMs}ms. Periksa koneksi internet Anda atau pastikan URL/Key Supabase sudah benar.`;
+      console.warn('TIMEOUT WARNING:', errorMsg);
+      reject(new Error(errorMsg));
     }, timeoutMs);
   });
 
@@ -70,8 +72,11 @@ export async function withTimeout<T>(promise: Promise<T> | any, timeoutMs: numbe
     const result = await Promise.race([promise as Promise<T>, timeoutPromise]);
     clearTimeout(timeoutId);
     return result as T;
-  } catch (error) {
+  } catch (error: any) {
     clearTimeout(timeoutId);
+    if (!error.message.includes('timed out')) {
+      console.error(`ERROR in ${context}:`, error);
+    }
     throw error;
   }
 }

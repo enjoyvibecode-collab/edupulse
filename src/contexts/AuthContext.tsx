@@ -89,6 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function fetchProfile(userId: string) {
     if (!userId) return;
     
+    // Prevent multiple concurrent fetches for the same user if possible
+    // (though in this context we'll just handle it gracefully)
+    
     try {
       console.log('Fetching profile for:', userId);
       const { data, error } = await withTimeout(
@@ -96,25 +99,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('*')
           .eq('id', userId)
-          .single(),
-        45000, // 45s for profile to handle cold starts/network lag
+          .maybeSingle(), // Use maybeSingle to avoid 406 errors on "not found"
+        20000, // 20s is more than enough, better to fail faster than 45s
         'Profile Fetch'
       ) as any;
 
       if (error) {
-        // If it's a "not found" error, it's fine
-        if (error.code === 'PGRST116') {
-          console.warn('Profile not found for user:', userId);
-        } else {
-          throw error;
-        }
+        console.error('Database error in fetchProfile:', error);
+        throw error;
       }
       
-      setProfile(data);
+      if (isMounted) {
+        setProfile(data);
+        console.log('Profile loaded:', data?.role);
+      }
     } catch (error: any) {
       console.error('Error in fetchProfile:', error.message);
+      // Don't leak the raw error to UI but ensure we aren't stuck loading
     } finally {
-      setLoading(false);
+      if (isMounted) {
+        setLoading(false);
+      }
     }
   }
 

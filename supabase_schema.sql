@@ -146,9 +146,19 @@ ON public.profiles FOR SELECT
 TO authenticated
 USING (true);
 
--- Profiles: Admins can manage profiles
+-- Profiles: Admins can manage profiles (Used more granular actions to prevent ALL recursion)
 CREATE POLICY "Admins can manage profiles"
-ON public.profiles FOR ALL
+ON public.profiles FOR INSERT
+TO authenticated
+WITH CHECK (public.is_admin_or_owner());
+
+CREATE POLICY "Admins can update profiles"
+ON public.profiles FOR UPDATE
+TO authenticated
+USING (public.is_admin_or_owner());
+
+CREATE POLICY "Admins can delete profiles"
+ON public.profiles FOR DELETE
 TO authenticated
 USING (public.is_admin_or_owner());
 
