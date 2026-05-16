@@ -2,6 +2,8 @@ import * as React from "react"
 import { useState, useEffect, useMemo, useRef } from "react"
 import * as XLSX from 'xlsx'
 import { jsPDF } from "jspdf"
+import html2canvas from "html2canvas"
+import QRCode from "qrcode"
 import { 
   Table, 
   TableBody, 
@@ -66,133 +68,49 @@ export default function Students() {
   const [importing, setImporting] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
   const [selectedForFace, setSelectedForFace] = useState<Student | null>(null)
+  const [exportingStudent, setExportingStudent] = useState<Student | null>(null)
+  const cardTemplateRef = useRef<HTMLDivElement>(null)
   const qrRef = useRef<HTMLCanvasElement>(null)
 
   const generateIDCard = async (student: Student) => {
     try {
-      // Helper untuk memproses foto menjadi bulat dengan Canvas
-      const getCircularBase64 = (url: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const size = Math.min(img.width, img.height);
-            canvas.width = size;
-            canvas.height = size;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return reject("Canvas failure");
-            
-            ctx.beginPath();
-            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, size, size);
-            resolve(canvas.toDataURL('image/jpeg', 0.95));
-          };
-          img.onerror = () => reject("Load failed");
-          img.src = url;
-        });
-      };
-
-      // Premium Portrait ID-1 (54mm x 85.6mm)
-      const doc = new jsPDF('p', 'mm', [54, 85.6]);
-      const cardW = 54;
-      const cardH = 85.6;
-
-      // Palette Warna (Deep Navy & Soft Gold)
-      const navyDeep = [31, 37, 84];     
-      const softGold = [212, 163, 115];  
-      const white = [255, 255, 255];
-
-      // 1. Background
-      doc.setFillColor(navyDeep[0], navyDeep[1], navyDeep[2]);
-      doc.rect(0, 0, cardW, cardH, 'F');
-
-      // 2. Subtle Decoration Line
-      doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
-      doc.setLineWidth(0.15);
-      for (let i = 0; i < 6; i++) {
-        doc.line(cardW - (i * 7), 0, cardW, (i * 7));
-      }
-
-      // 3. Circular Student Photo (Centered)
-      const photoSize = 34;
-      const centerX = cardW / 2;
-      const centerY = 32;
-
-      // Outer Glow/Border gold
-      doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
-      doc.setLineWidth(0.4);
-      doc.circle(centerX, centerY, (photoSize / 2) + 0.5, 'D');
-
-      if (student.photo_url) {
-        try {
-          const circularPhoto = await getCircularBase64(student.photo_url);
-          doc.addImage(circularPhoto, 'JPEG', centerX - (photoSize / 2), centerY - (photoSize / 2), photoSize, photoSize);
-        } catch (e) {
-          doc.setFillColor(45, 55, 85);
-          doc.circle(centerX, centerY, photoSize / 2, 'F');
-        }
-      } else {
-        doc.setFillColor(45, 55, 85);
-        doc.circle(centerX, centerY, photoSize / 2, 'F');
-      }
-
-      // 4. Student Name
-      doc.setTextColor(white[0], white[1], white[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(student.full_name.toUpperCase(), cardW / 2, 58, { align: 'center', maxWidth: 46 });
-
-      // 5. School Name
-      doc.setTextColor(softGold[0], softGold[1], softGold[2]);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 63, { align: 'center' });
-
-      // 6. Thin Divider
-      doc.setDrawColor(70, 75, 115);
-      doc.setLineWidth(0.2);
-      doc.line(8, 68, cardW - 8, 68);
-
-      // 7. QR Code (Bottom Left)
-      try {
-        const qrCanvas = document.createElement('canvas');
-        const QRCode = (await import('qrcode')).default;
-        await QRCode.toCanvas(qrCanvas, student.nisn, {
-          width: 100,
-          margin: 1,
-          color: { dark: '#FFFFFF', light: '#1F2554' }
-        });
-        const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 8, 71, 10, 10);
-      } catch (err) {
-        console.error("QR Error", err);
-      }
-
-      // 8. Branding (Bottom Right)
-      doc.setTextColor(white[0], white[1], white[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text("NESATMA", 46, 77, { align: 'right' });
+      setExportingStudent(student)
       
-      doc.setTextColor(softGold[0], softGold[1], softGold[2]);
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'normal');
-      doc.text("STUDENT ACCESS ID", 46, 80, { align: 'right' });
+      // Tunggu render template selesai dan gambar di-load
+      setTimeout(async () => {
+        if (!cardTemplateRef.current) {
+          toast.error("Template kartu tidak ditemukan")
+          return
+        }
 
-      // 9. Premium Footer Detail
-      doc.setFillColor(softGold[0], softGold[1], softGold[2]);
-      doc.rect(0, 84.6, cardW, 1, 'F'); 
+        const canvas = await html2canvas(cardTemplateRef.current, {
+          useCORS: true,
+          scale: 3, // High quality, balance with speed
+          backgroundColor: null,
+          logging: false,
+        })
 
-      doc.save(`ID-CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
-      toast.success("ID Card Premium Modern berhasil diunduh");
+        const imgData = canvas.toDataURL('image/png')
+        
+        // Export ke PDF
+        const pdf = new jsPDF({
+          orientation: 'p',
+          unit: 'mm',
+          format: [54, 85.6]
+        })
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, 54, 85.6)
+        pdf.save(`ID-CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`)
+        
+        setExportingStudent(null)
+        toast.success("ID Card Premium Modern berhasil diunduh")
+      }, 800) 
     } catch (error: any) {
-      console.error("PDF Error:", error);
-      toast.error("Gagal men-generate kartu: " + (error.message || "Unknown Error"));
+      console.error("Export Error:", error)
+      toast.error("Gagal eksport kartu: " + (error.message || "Unknown Error"))
+      setExportingStudent(null)
     }
-  };
+  }
 
   const fetchStudents = async () => {
     setLoading(true)
@@ -586,6 +504,109 @@ export default function Students() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden Card Template for Export */}
+      {exportingStudent && (
+        <div className="fixed top-[-9999px] left-[-9999px]">
+          <div 
+            ref={cardTemplateRef}
+            className="relative w-[320px] h-[510px] bg-[#1F2554] overflow-hidden p-0 m-0 flex flex-col items-center shadow-2xl"
+            style={{ fontFamily: 'sans-serif' }}
+          >
+            {/* Elegant Background Accents */}
+            <div className="absolute top-0 right-0 w-40 h-40 border-[0.5px] border-[#D4A373]/20 rotate-45 translate-x-1/2 -translate-y-1/2" />
+            <div className="absolute top-0 right-0 w-32 h-32 border-[0.5px] border-[#D4A373]/10 rotate-45 translate-x-1/2 -translate-y-1/2" />
+            
+            {/* Subtle V-Pattern at bottom */}
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full h-[0.5px] bg-[#D4A373]/20 scale-x-75" />
+            
+            {/* Header / Identity Logo (Top Center) */}
+            <div className="mt-8 mb-4">
+              <div className="flex flex-col items-center">
+                <span className="text-[#D4A373] text-[10px] font-black uppercase tracking-[0.3em] opacity-40">Identity Card</span>
+              </div>
+            </div>
+
+            {/* Photo Section with Frame Overlay */}
+            <div className="relative mt-2 mb-8 group">
+              {/* Outer Golden Glow */}
+              <div className="absolute inset-0 -m-1 rounded-full bg-[#D4A373]/20 blur-sm" />
+              
+              <div className="relative h-40 w-40 rounded-full border-2 border-[#D4A373] p-1.5 overflow-hidden bg-[#1F2554] shadow-xl">
+                 {/* Student Photo */}
+                 <div className="w-full h-full rounded-full overflow-hidden">
+                    {exportingStudent.photo_url ? (
+                      <img 
+                        src={exportingStudent.photo_url} 
+                        className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                         <Loader2 className="w-8 h-8 text-slate-600 animate-spin" />
+                      </div>
+                    )}
+                 </div>
+                 
+                 {/* Decorative Frame Overlay (Gradient ring) */}
+                 <div className="absolute inset-0 rounded-full border-[8px] border-[#1F2554] mix-blend-normal opacity-100" />
+                 <div className="absolute inset-0 rounded-full border-[2px] border-[#D4A373]/30" />
+              </div>
+              
+              {/* Frame Accent Corners */}
+              <div className="absolute -top-1 -left-1 w-6 h-6 border-t-[0.5px] border-l-[0.5px] border-[#D4A373]/40 rounded-tl-xl" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-[0.5px] border-r-[0.5px] border-[#D4A373]/40 rounded-br-xl" />
+            </div>
+
+            {/* Student Info */}
+            <div className="text-center px-6 max-w-full">
+              <h2 className="text-2xl font-black text-white leading-tight uppercase tracking-tight mb-1 drop-shadow-md truncate">
+                {exportingStudent.full_name}
+              </h2>
+              <div className="flex flex-col items-center">
+                <p className="text-[#D4A373] text-[11px] font-bold tracking-[0.15em] mb-4">
+                  {exportingStudent.class_name ? `SMP NEGERI 1 MANONJAYA - ${exportingStudent.class_name}` : "SMP NEGERI 1 MANONJAYA"}
+                </p>
+              </div>
+            </div>
+
+            {/* Premium Divider */}
+            <div className="w-4/5 h-[0.5px] bg-gradient-to-r from-transparent via-[#D4A373]/40 to-transparent my-6" />
+
+            {/* Footer Section */}
+            <div className="absolute bottom-8 left-0 w-full px-8 flex items-end justify-between">
+              {/* QR Code */}
+              <div className="bg-white p-1 rounded-lg shadow-lg">
+                <canvas 
+                  ref={(el) => {
+                    if (el && exportingStudent) {
+                      QRCode.toCanvas(el, exportingStudent.nisn, {
+                        width: 70,
+                        margin: 1,
+                        color: {
+                          dark: '#1F2554',
+                          light: '#FFFFFF'
+                        }
+                      });
+                    }
+                  }} 
+                  className="w-16 h-16"
+                />
+              </div>
+
+              {/* Branding Bottom Right */}
+              <div className="text-right flex flex-col items-end">
+                <span className="text-white text-base font-black italic tracking-tighter">NESATMA</span>
+                <span className="text-[#D4A373] text-[8px] font-bold uppercase tracking-[0.2em]">Student Access ID</span>
+                <div className="mt-1 w-8 h-[2px] bg-[#D4A373]" />
+              </div>
+            </div>
+
+            {/* Gold Bottom Detail */}
+            <div className="absolute bottom-0 left-0 w-full h-1.5 bg-[#D4A373]" />
+          </div>
+        </div>
+      )}
 
       <FaceRegistrationModal
         student={selectedForFace}
