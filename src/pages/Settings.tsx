@@ -380,15 +380,22 @@ export default function Settings() {
                 </div>
                 <h3 className="text-xl font-black italic uppercase tracking-tighter">Konfirmasi Data</h3>
                 <p className="text-xs font-medium text-white/80 leading-relaxed">
-                  Semua perubahan akan berdampak langsung pada seluruh terminal scanner yang terhubung.
+                  {isAdmin 
+                    ? "Semua perubahan akan berdampak langsung pada seluruh terminal scanner yang terhubung." 
+                    : "Anda tidak memiliki izin (peran Admin) untuk mengubah pengaturan sistem ini."}
                 </p>
                 <Button 
                   onClick={handleSave} 
-                  disabled={saving}
-                  className="w-full bg-white text-primary hover:bg-slate-50 font-bold rounded-2xl h-12 text-sm shadow-xl"
+                  disabled={saving || !isAdmin}
+                  className={`w-full font-bold rounded-2xl h-12 text-sm shadow-xl transition-all ${
+                    isAdmin 
+                      ? "bg-white text-primary hover:bg-slate-50" 
+                      : "bg-white/50 text-white/50 cursor-not-allowed"
+                  }`}
                 >
-                  {saving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  {saving ? "Menyimpan..." : "Simpan Perubahan"}
+                  {!isAdmin && <Lock className="mr-2 h-4 w-4" />}
+                  {saving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : (!isAdmin ? null : <Save className="mr-2 h-4 w-4" />)}
+                  {saving ? "Menyimpan..." : (isAdmin ? "Simpan Perubahan" : "Akses Terkunci")}
                 </Button>
               </div>
             </CardContent>
