@@ -70,40 +70,38 @@ export default function Students() {
 
   const generateIDCard = async (student: Student) => {
     try {
-      // Inisialisasi PDF Portrait (P) dengan ukuran ID-1 (54mm x 85.6mm)
+      // Premium Portrait ID-1 (54mm x 85.6mm)
       const doc = new jsPDF('p', 'mm', [54, 85.6]);
       const cardW = 54;
       const cardH = 85.6;
 
-      // 1. Background Navy Deep
-      doc.setFillColor(28, 35, 65); // Warna Navy yang lebih pekat
+      // Palette Warna sesuai Prompt
+      const navyDeep = [31, 37, 84];     // #1F2554
+      const softGold = [212, 163, 115];  // #D4A373
+      const white = [255, 255, 255];
+
+      // 1. Background Navy Premium
+      doc.setFillColor(navyDeep[0], navyDeep[1], navyDeep[2]);
       doc.rect(0, 0, cardW, cardH, 'F');
 
-      // 2. Aksen Gold "V" Pattern (Sesuai Gambar)
-      doc.setDrawColor(184, 146, 96); // Warna Gold khas
-      doc.setLineWidth(3.5); // Garis tebal sesuai gambar
+      // 2. Subtle Geometric Gold Lines (Top Decoration - Luxury Minimalist)
+      doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
+      doc.setLineWidth(0.2); // Sangat tipis untuk kesan elegan
       
-      // Lapisan V ke-1
-      doc.line(-5, 8, cardW / 2, 32);
-      doc.line(cardW + 5, 8, cardW / 2, 32);
-      
-      // Lapisan V ke-2
-      doc.line(-5, -2, cardW / 2, 22);
-      doc.line(cardW + 5, -2, cardW / 2, 22);
-      
-      // Lapisan V ke-3
-      doc.line(-5, -12, cardW / 2, 12);
-      doc.line(cardW + 5, -12, cardW / 2, 12);
+      // Pola garis minimalis diagonal di pojok kanan atas
+      for (let i = 0; i < 5; i++) {
+        doc.line(cardW - (i * 8), 0, cardW, (i * 8));
+      }
 
-      // 3. Foto Siswa (Lingkaran di Tengah)
-      const photoSize = 38; // Diameter sedikit lebih besar
+      // 3. Foto Siswa Bulat (Perfectly Centered)
+      const photoSize = 34;
       const centerX = cardW / 2;
-      const centerY = 42; 
+      const centerY = 32;
 
-      // Lingkaran Border Gold
-      doc.setDrawColor(184, 146, 96);
-      doc.setLineWidth(1.2);
-      doc.circle(centerX, centerY, (photoSize / 2) + 0.6, 'D');
+      // Outline Emas Tipis untuk Foto
+      doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
+      doc.setLineWidth(0.4);
+      doc.circle(centerX, centerY, (photoSize / 2) + 0.4, 'D');
 
       if (student.photo_url) {
         try {
@@ -121,26 +119,29 @@ export default function Students() {
         doc.circle(centerX, centerY, photoSize / 2, 'F');
       }
 
-      // 4. Nama Siswa (Putih)
-      doc.setTextColor(255, 255, 255);
+      // 4. Nama Siswa (Large & Clean)
+      doc.setTextColor(white[0], white[1], white[2]);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
-      const nameParts = student.full_name.split(' ');
-      const displayName = nameParts.length > 2 ? nameParts.slice(0, 2).join(' ') : student.full_name;
-      doc.text(displayName.toUpperCase(), cardW / 2, 63, { align: 'center' });
+      doc.setFontSize(14);
+      
+      // Mengambil nama panggilan/singkat jika terlalu panjang
+      const name = student.full_name.toUpperCase();
+      doc.text(name, cardW / 2, 58, { align: 'center', maxWidth: 46 });
 
-      // 5. Nama Sekolah (Gold)
-      doc.setTextColor(184, 146, 96);
+      // 5. Nama Sekolah (Gold - Smaller)
+      doc.setTextColor(softGold[0], softGold[1], softGold[2]);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text("SMPN 1 MANONJAYA", cardW / 2, 68, { align: 'center' });
+      doc.setFontSize(7.5);
+      doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 63, { align: 'center' });
 
-      // 6. Footer Layout (Garis Putih Tipis - Manual Color for Opacity Effect)
-      doc.setDrawColor(80, 90, 120); // Warna navy keabu-abuan untuk simulasi garis tipis
-      doc.setLineWidth(0.3);
-      doc.line(5, 72, cardW - 5, 72); 
+      // 6. Elegant Thin Divider Line
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.15);
+      doc.setAlpha(0.2); // Simulasi transparansi 20%
+      doc.line(8, 68, cardW - 8, 68);
+      doc.setAlpha(1.0);
 
-      // 7. Bagian Bawah: QR Code (Kiri) & Logo/Info (Kanan)
+      // 7. QR Code Section (Bottom Left)
       try {
         const qrCanvas = document.createElement('canvas');
         const QRCode = (await import('qrcode')).default;
@@ -149,33 +150,33 @@ export default function Students() {
           margin: 1,
           color: {
             dark: '#FFFFFF',
-            light: '#1C2341' 
+            light: '#1F2554' // Match navy background
           }
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 6, 74, 9, 9);
+        doc.addImage(qrDataUrl, 'PNG', 8, 71, 9, 9);
       } catch (err) {
         console.error("QR Error", err);
       }
 
-      // Vertical Divider (Manual Color)
-      doc.setDrawColor(80, 90, 120);
-      doc.line(18, 74, 18, 83);
-
-      // School Branding (NESATMA)
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
+      // 8. School Info / Brand (Bottom Right)
+      doc.setTextColor(white[0], white[1], white[2]);
       doc.setFont('helvetica', 'bold');
-      doc.text("NESATMA", 21, 79);
+      doc.setFontSize(9);
+      doc.text("NESATMA", 46, 76, { align: 'right' });
       
-      doc.setTextColor(184, 146, 96); // Gold
+      doc.setTextColor(softGold[0], softGold[1], softGold[2]);
       doc.setFontSize(6);
       doc.setFont('helvetica', 'normal');
-      doc.text("ID CARD", 21, 82);
+      doc.text("STUDENT ACCESS ID", 46, 79, { align: 'right' });
 
-      // Simpan File
-      doc.save(`ID_CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
-      toast.success("ID Card Premium Portrait berhasil diunduh");
+      // 9. Footer Tiny Accent
+      doc.setFillColor(softGold[0], softGold[1], softGold[2]);
+      doc.rect(0, 84.6, cardW, 1, 'F'); // Garis emas sangat tipis di paling bawah
+
+      // Save
+      doc.save(`ID-CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
+      toast.success("ID Card Premium Modern berhasil diunduh");
     } catch (error: any) {
       console.error("PDF Error:", error);
       toast.error("Gagal men-generate kartu: " + error.message);
