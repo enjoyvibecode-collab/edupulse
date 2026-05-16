@@ -80,37 +80,36 @@ export default function Students() {
       doc.rect(0, 0, cardW, cardH, 'F');
 
       // 2. Aksen Gold "V" Pattern (Sesuai Gambar)
-      doc.setDrawColor(184, 146, 96); // Warna Gold
-      doc.setLineWidth(3); // Garis tebal
+      doc.setDrawColor(184, 146, 96); // Warna Gold khas
+      doc.setLineWidth(3.5); // Garis tebal sesuai gambar
       
-      // Lapisan V pertama (paling atas)
-      doc.line(-5, 5, cardW / 2, 25);
-      doc.line(cardW + 5, 5, cardW / 2, 25);
+      // Lapisan V ke-1
+      doc.line(-5, 8, cardW / 2, 32);
+      doc.line(cardW + 5, 8, cardW / 2, 32);
       
-      // Lapisan V kedua (tengah)
-      doc.line(-5, -5, cardW / 2, 15);
-      doc.line(cardW + 5, -5, cardW / 2, 15);
+      // Lapisan V ke-2
+      doc.line(-5, -2, cardW / 2, 22);
+      doc.line(cardW + 5, -2, cardW / 2, 22);
       
-      // Lapisan V ketiga (atas sekali)
-      doc.line(-5, -15, cardW / 2, 5);
-      doc.line(cardW + 5, -15, cardW / 2, 5);
+      // Lapisan V ke-3
+      doc.line(-5, -12, cardW / 2, 12);
+      doc.line(cardW + 5, -12, cardW / 2, 12);
 
       // 3. Foto Siswa (Lingkaran di Tengah)
-      const photoSize = 34; // Diameter 34mm
+      const photoSize = 38; // Diameter sedikit lebih besar
       const centerX = cardW / 2;
-      const centerY = 38; // Posisi Y pusat lingkaran
+      const centerY = 42; 
 
       // Lingkaran Border Gold
       doc.setDrawColor(184, 146, 96);
-      doc.setLineWidth(1);
-      doc.circle(centerX, centerY, (photoSize / 2) + 0.5, 'D');
+      doc.setLineWidth(1.2);
+      doc.circle(centerX, centerY, (photoSize / 2) + 0.6, 'D');
 
       if (student.photo_url) {
         try {
           doc.saveGraphicsState();
           doc.circle(centerX, centerY, photoSize / 2, 'F');
           doc.clip();
-          // Kita letakkan foto agar center di dalam clip circle
           doc.addImage(student.photo_url, 'JPEG', centerX - (photoSize / 2), centerY - (photoSize / 2), photoSize, photoSize);
           doc.restoreGraphicsState();
         } catch (e) {
@@ -125,27 +124,23 @@ export default function Students() {
       // 4. Nama Siswa (Putih)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      // Nama maksimal 2 baris jika terlalu panjang
+      doc.setFontSize(16);
       const nameParts = student.full_name.split(' ');
-      const displayName = nameParts.length > 3 ? nameParts.slice(0, 3).join(' ') : student.full_name;
-      doc.text(displayName.toUpperCase(), cardW / 2, 60, { align: 'center', maxWidth: 45 });
+      const displayName = nameParts.length > 2 ? nameParts.slice(0, 2).join(' ') : student.full_name;
+      doc.text(displayName.toUpperCase(), cardW / 2, 68, { align: 'center' });
 
       // 5. Nama Sekolah (Gold)
       doc.setTextColor(184, 146, 96);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 66, { align: 'center' });
+      doc.text("SMPN 1 MANONJAYA", cardW / 2, 73, { align: 'center' });
 
-      // 6. Footer Layout (Garis Putih Tipis)
-      doc.setDrawColor(255, 255, 255);
-      doc.setAlpha(0.4);
+      // 6. Footer Layout (Garis Putih Tipis - Manual Color for Opacity Effect)
+      doc.setDrawColor(100, 105, 125); // Simulasi Putih Transparan di atas Navy
       doc.setLineWidth(0.3);
-      doc.line(5, 71, cardW - 5, 71); // Garis horizontal
-      doc.setAlpha(1);
+      doc.line(4, 77, cardW - 4, 77); 
 
       // 7. Bagian Bawah: QR Code (Kiri) & Logo/Info (Kanan)
-      // QR Code
       try {
         const qrCanvas = document.createElement('canvas');
         const QRCode = (await import('qrcode')).default;
@@ -154,35 +149,33 @@ export default function Students() {
           margin: 1,
           color: {
             dark: '#FFFFFF',
-            light: '#1C2341' // Sesuai navy background
+            light: '#1C2341' 
           }
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png');
-        doc.addImage(qrDataUrl, 'PNG', 6, 73, 11, 11);
+        doc.addImage(qrDataUrl, 'PNG', 6, 79, 12, 12);
       } catch (err) {
         console.error("QR Error", err);
       }
 
-      // Vertical Divider
-      doc.setDrawColor(255, 255, 255);
-      doc.setAlpha(0.4);
-      doc.line(20, 72.5, 20, 83.5);
-      doc.setAlpha(1);
+      // Vertical Divider (Manual Color)
+      doc.setDrawColor(100, 105, 125);
+      doc.line(22, 79, 22, 91);
 
       // School Branding (NESATMA)
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text("NESATMA", 23, 79);
+      doc.text("NESATMA", 25, 85);
       
       doc.setTextColor(184, 146, 96); // Gold
-      doc.setFontSize(6.5);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.text("ID CARD", 23, 82);
+      doc.text("ID CARD", 25, 88);
 
       // Simpan File
       doc.save(`ID_CARD_${student.nisn}_${student.full_name.replace(/\s+/g, '_')}.pdf`);
-      toast.success("ID Card Portrait Premium berhasil diunduh");
+      toast.success("ID Card Premium Portrait berhasil diunduh");
     } catch (error: any) {
       console.error("PDF Error:", error);
       toast.error("Gagal men-generate kartu: " + error.message);
