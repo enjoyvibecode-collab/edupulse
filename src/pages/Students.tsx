@@ -70,46 +70,66 @@ export default function Students() {
 
   const generateIDCard = async (student: Student) => {
     try {
+      // Helper untuk memproses foto menjadi bulat dengan Canvas
+      const getCircularBase64 = (url: string): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const size = Math.min(img.width, img.height);
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject("Canvas failure");
+            
+            ctx.beginPath();
+            ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, size, size);
+            resolve(canvas.toDataURL('image/jpeg', 0.95));
+          };
+          img.onerror = () => reject("Load failed");
+          img.src = url;
+        });
+      };
+
       // Premium Portrait ID-1 (54mm x 85.6mm)
       const doc = new jsPDF('p', 'mm', [54, 85.6]);
       const cardW = 54;
       const cardH = 85.6;
 
-      // Palette Warna sesuai Prompt
-      const navyDeep = [31, 37, 84];     // #1F2554
-      const softGold = [212, 163, 115];  // #D4A373
+      // Palette Warna (Deep Navy & Soft Gold)
+      const navyDeep = [31, 37, 84];     
+      const softGold = [212, 163, 115];  
       const white = [255, 255, 255];
 
-      // 1. Background Navy Premium
+      // 1. Background
       doc.setFillColor(navyDeep[0], navyDeep[1], navyDeep[2]);
       doc.rect(0, 0, cardW, cardH, 'F');
 
-      // 2. Subtle Geometric Gold Lines (Top Decoration - Luxury Minimalist)
+      // 2. Subtle Decoration Line
       doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
-      doc.setLineWidth(0.2); // Sangat tipis untuk kesan elegan
-      
-      // Pola garis minimalis diagonal di pojok kanan atas
-      for (let i = 0; i < 5; i++) {
-        doc.line(cardW - (i * 8), 0, cardW, (i * 8));
+      doc.setLineWidth(0.15);
+      for (let i = 0; i < 6; i++) {
+        doc.line(cardW - (i * 7), 0, cardW, (i * 7));
       }
 
-      // 3. Foto Siswa Bulat (Perfectly Centered)
+      // 3. Circular Student Photo (Centered)
       const photoSize = 34;
       const centerX = cardW / 2;
       const centerY = 32;
 
-      // Outline Emas Tipis untuk Foto
+      // Outer Glow/Border gold
       doc.setDrawColor(softGold[0], softGold[1], softGold[2]);
       doc.setLineWidth(0.4);
-      doc.circle(centerX, centerY, (photoSize / 2) + 0.4, 'D');
+      doc.circle(centerX, centerY, (photoSize / 2) + 0.5, 'D');
 
       if (student.photo_url) {
         try {
-          doc.saveGraphicsState();
-          doc.circle(centerX, centerY, photoSize / 2, 'F');
-          doc.clip();
-          doc.addImage(student.photo_url, 'JPEG', centerX - (photoSize / 2), centerY - (photoSize / 2), photoSize, photoSize);
-          doc.restoreGraphicsState();
+          const circularPhoto = await getCircularBase64(student.photo_url);
+          doc.addImage(circularPhoto, 'JPEG', centerX - (photoSize / 2), centerY - (photoSize / 2), photoSize, photoSize);
         } catch (e) {
           doc.setFillColor(45, 55, 85);
           doc.circle(centerX, centerY, photoSize / 2, 'F');
@@ -119,37 +139,31 @@ export default function Students() {
         doc.circle(centerX, centerY, photoSize / 2, 'F');
       }
 
-      // 4. Nama Siswa (Large & Clean)
+      // 4. Student Name
       doc.setTextColor(white[0], white[1], white[2]);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
-      
-      // Mengambil nama panggilan/singkat jika terlalu panjang
-      const name = student.full_name.toUpperCase();
-      doc.text(name, cardW / 2, 58, { align: 'center', maxWidth: 46 });
+      doc.text(student.full_name.toUpperCase(), cardW / 2, 58, { align: 'center', maxWidth: 46 });
 
-      // 5. Nama Sekolah (Gold - Smaller)
+      // 5. School Name
       doc.setTextColor(softGold[0], softGold[1], softGold[2]);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.text("SMP NEGERI 1 MANONJAYA", cardW / 2, 63, { align: 'center' });
 
-      // 6. Elegant Thin Divider Line (Manual color blending for premium aesthetic)
-      doc.setDrawColor(70, 75, 115); // Blended navy-white for subtle divider
+      // 6. Thin Divider
+      doc.setDrawColor(70, 75, 115);
       doc.setLineWidth(0.2);
       doc.line(8, 68, cardW - 8, 68);
 
-      // 7. QR Code Section (Bottom Left - Clean & Minimal)
+      // 7. QR Code (Bottom Left)
       try {
         const qrCanvas = document.createElement('canvas');
         const QRCode = (await import('qrcode')).default;
         await QRCode.toCanvas(qrCanvas, student.nisn, {
           width: 100,
           margin: 1,
-          color: {
-            dark: '#FFFFFF',
-            light: '#1F2554' // Match navy background exactly
-          }
+          color: { dark: '#FFFFFF', light: '#1F2554' }
         });
         const qrDataUrl = qrCanvas.toDataURL('image/png');
         doc.addImage(qrDataUrl, 'PNG', 8, 71, 10, 10);
@@ -157,14 +171,14 @@ export default function Students() {
         console.error("QR Error", err);
       }
 
-      // 8. School Branding / Identity (Bottom Right)
+      // 8. Branding (Bottom Right)
       doc.setTextColor(white[0], white[1], white[2]);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.text("NESATMA", 46, 77, { align: 'right' });
       
       doc.setTextColor(softGold[0], softGold[1], softGold[2]);
-      doc.setFontSize(6);
+      doc.setFontSize(6.5);
       doc.setFont('helvetica', 'normal');
       doc.text("STUDENT ACCESS ID", 46, 80, { align: 'right' });
 
