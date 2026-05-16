@@ -34,6 +34,7 @@ interface Profile {
   id: string
   full_name: string
   role: 'platform_owner' | 'admin_sekolah' | 'guru' | 'orang_tua'
+  is_verified: boolean
   created_at: string
 }
 
@@ -53,6 +54,7 @@ export default function UserManagement() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .order('is_verified', { ascending: true })
         .order('role', { ascending: true })
 
       if (error) throw error
@@ -78,6 +80,22 @@ export default function UserManagement() {
       fetchProfiles()
     } catch (error: any) {
       toast.error("Gagal memperbarui role: " + error.message)
+    }
+  }
+
+  const toggleVerification = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_verified: !currentStatus })
+        .eq('id', userId)
+
+      if (error) throw error
+      
+      toast.success(currentStatus ? "Akses akun dinonaktifkan." : "Akun berhasil diverifikasi!")
+      fetchProfiles()
+    } catch (error: any) {
+      toast.error("Gagal memproses verifikasi: " + error.message)
     }
   }
 
@@ -144,14 +162,21 @@ export default function UserManagement() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredProfiles.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50/30 transition-colors group">
+                    <tr key={user.id} className={`hover:bg-slate-50/30 transition-colors group ${!user.is_verified ? 'bg-orange-50/20' : ''}`}>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-lg border-2 border-indigo-100">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg border-2 ${
+                            user.is_verified ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-100 text-slate-400 border-slate-200'
+                          }`}>
                             {user.full_name.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800">{user.full_name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-slate-800">{user.full_name}</p>
+                              {!user.is_verified && (
+                                <Badge className="bg-orange-100 text-orange-600 hover:bg-orange-100 border-orange-200 text-[9px] font-black uppercase tracking-tighter shadow-none">Menunggu Verifikasi</Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
                               ID: {user.id.substring(0, 8)}...
                               {user.id === currentUserProfile?.id && (
@@ -182,10 +207,25 @@ export default function UserManagement() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-none shadow-2xl">
                             <div className="px-2 py-1.5 mb-1">
+                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Kontrol Akses</p>
+                            </div>
+                            <DropdownMenuItem 
+                              onClick={() => toggleVerification(user.id, user.is_verified)}
+                              disabled={user.id === currentUserProfile?.id}
+                              className={`rounded-xl gap-2 py-2.5 font-bold ${
+                                user.is_verified ? 'text-orange-600 focus:bg-orange-50 focus:text-orange-600' : 'text-emerald-600 focus:bg-emerald-50 focus:text-emerald-600'
+                              } ${user.id === currentUserProfile?.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {user.is_verified ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
+                              {user.is_verified ? "Nonaktifkan Akses" : "Verifikasi User"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1 bg-slate-50" />
+                            <div className="px-2 py-1.5 mb-1">
                               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Ubah Role</p>
                             </div>
                             <DropdownMenuItem 
                               onClick={() => updateRole(user.id, 'admin_sekolah')}
+                              disabled={user.id === currentUserProfile?.id}
                               className="rounded-xl gap-2 focus:bg-indigo-50 focus:text-indigo-600 py-2.5"
                             >
                               <Shield size={16} />
@@ -193,6 +233,7 @@ export default function UserManagement() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               onClick={() => updateRole(user.id, 'guru')}
+                              disabled={user.id === currentUserProfile?.id}
                               className="rounded-xl gap-2 focus:bg-indigo-50 focus:text-indigo-600 py-2.5"
                             >
                               <BadgeCheck size={16} />

@@ -21,5 +21,12 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  // Check if profile is loaded and verified
+  const { profile } = useAuth()
+  
+  if (profile && !profile.is_verified && profile.role !== 'platform_owner' && location.pathname !== '/pending-verification') {
+    return <Navigate to="/pending-verification" replace />
+  }
+
   return <>{children}</>
 }

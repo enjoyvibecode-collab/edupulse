@@ -13,6 +13,7 @@ import Settings from "./pages/Settings"
 import Login from "./pages/Login"
 import ParentCheck from "./pages/ParentCheck"
 import UserManagement from "./pages/UserManagement"
+import PendingVerification from "./pages/PendingVerification"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { AuthProvider } from "./contexts/AuthContext"
@@ -27,6 +28,7 @@ export default function App() {
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/parent-check" element={<ParentCheck />} />
+            <Route path="/pending-verification" element={<PendingVerification />} />
 
             {/* Protected Dashboard Routes */}
             <Route 
