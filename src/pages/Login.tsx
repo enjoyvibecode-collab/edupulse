@@ -106,6 +106,7 @@ export default function Login() {
                   <Label htmlFor="fullName">Nama Lengkap</Label>
                   <Input 
                     id="fullName" 
+                    name="full_name"
                     placeholder="Contoh: Bpk. Junaedi" 
                     className="h-11 bg-slate-50 border-none ring-offset-background focus-visible:ring-2 focus-visible:ring-primary/20" 
                     value={fullName}

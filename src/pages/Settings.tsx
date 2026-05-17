@@ -207,6 +207,7 @@ export default function Settings() {
                 <Label htmlFor="school-name" className="text-xs font-bold uppercase tracking-wider text-slate-500">Nama Instansi Sekolah</Label>
                 <Input 
                   id="school-name" 
+                  name="school_name"
                   value={schoolName} 
                   onChange={(e) => setSchoolName(e.target.value)}
                   className="rounded-xl h-11 border-slate-200 focus:ring-primary/20"
@@ -231,8 +232,10 @@ export default function Settings() {
             <CardContent className="p-6">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Latitude</Label>
+                    <Label htmlFor="geo-latitude" className="text-xs font-bold uppercase tracking-wider text-slate-500">Latitude</Label>
                     <Input 
+                      id="geo-latitude"
+                      name="latitude"
                       type="number"
                       value={geoConfig.latitude}
                       onChange={(e) => setGeoConfig({...geoConfig, latitude: parseFloat(e.target.value)})}
@@ -240,8 +243,10 @@ export default function Settings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Longitude</Label>
+                    <Label htmlFor="geo-longitude" className="text-xs font-bold uppercase tracking-wider text-slate-500">Longitude</Label>
                     <Input 
+                      id="geo-longitude"
+                      name="longitude"
                       type="number"
                       value={geoConfig.longitude}
                       onChange={(e) => setGeoConfig({...geoConfig, longitude: parseFloat(e.target.value)})}
@@ -250,10 +255,12 @@ export default function Settings() {
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <div className="flex justify-between items-center mb-1">
-                      <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Radius Jangkauan (Meter)</Label>
+                      <Label htmlFor="geo-radius" className="text-xs font-bold uppercase tracking-wider text-slate-500">Radius Jangkauan (Meter)</Label>
                       <span className="text-xs font-black text-primary">{geoConfig.radius} m</span>
                     </div>
                     <Input 
+                      id="geo-radius"
+                      name="radius"
                       type="range"
                       min="50"
                       max="1000"

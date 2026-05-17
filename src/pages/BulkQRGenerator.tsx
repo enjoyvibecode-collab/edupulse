@@ -158,23 +158,52 @@ export default function BulkQRGenerator() {
         #print-area { display: none; }
         
         @media print {
-          body { 
-            background: white !important; 
-            margin: 0 !important; 
+          /* Reset common UI elements */
+          body, html {
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
             padding: 0 !important;
+            overflow: visible !important;
+            background: white !important;
+          }
+
+          /* Better strategy: hide UI specifically */
+          header, 
+          nav, 
+          aside,
+          .md\\:hidden,
+          .print-hidden,
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          /* Ensure main content wrappers don't have padding/margins that mess up A4 */
+          main, 
+          #root, 
+          .flex-1 {
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            background: white !important;
             height: auto !important;
           }
-          .print-hidden, .print\\:hidden { display: none !important; }
-          
+
           #print-area { 
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm;
-            padding: 5mm;
-            background: white;
-            z-index: 9999;
+            visibility: visible !important;
+            width: 210mm !important;
+            padding: 5mm !important;
+            background: white !important;
+          }
+          
+          /* Hide the screen-only UI inside BulkQRGenerator */
+          .pb-10, .space-y-6, .flex-col, .Card, .bg-emerald-50 {
+             /* We need to be careful not to hide the whole component */
+          }
+
+          #print-area * {
+            visibility: visible !important;
           }
           
           .card-print {
@@ -183,29 +212,27 @@ export default function BulkQRGenerator() {
             border: 0.5pt solid #cbd5e1;
             border-radius: 4mm;
             padding: 3mm;
-            display: flex;
-            background: white;
+            display: flex !important;
+            background: white !important;
             position: relative;
             overflow: hidden;
             box-sizing: border-box;
             float: left;
             margin: 2mm;
+            page-break-inside: avoid;
+            -webkit-print-color-adjust: exact;
           }
           
           .page-break { 
             clear: both;
             page-break-after: always; 
             height: 0;
+            display: block !important;
           }
           
           @page { 
             size: A4 portrait; 
-            margin: 0; 
-          }
-          
-          /* Hide everything else */
-          body > :not(#print-area) {
-            display: none !important;
+            margin: 0mm; 
           }
         }
       `}</style>
@@ -253,6 +280,8 @@ export default function BulkQRGenerator() {
               <div className="flex items-center gap-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input 
+                  id="search-students-bulk"
+                  name="search-students-bulk"
                   placeholder="Cari nama atau NISN..." 
                   className="w-full md:w-[300px] bg-slate-50 border-none h-11 focus:ring-2 focus:ring-emerald-500 rounded-xl" 
                   value={searchQuery}
@@ -260,6 +289,8 @@ export default function BulkQRGenerator() {
                 />
               </div>
               <select 
+                id="class-filter-bulk"
+                name="class-filter-bulk"
                 className="h-11 bg-slate-50 border-none rounded-xl px-4 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500"
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
