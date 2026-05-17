@@ -12,7 +12,8 @@ import {
   Grid, 
   List as ListIcon,
   ChevronLeft,
-  FileDown
+  FileDown,
+  Printer
 } from "lucide-react"
 import { studentService } from "@/lib/studentService"
 import { Student } from "@/types"
@@ -25,12 +26,27 @@ export default function BulkQRGenerator() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClass, setSelectedClass] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+
+  // Generate all QR URLs for printing
+  const [printData, setPrintData] = useState<Record<string, string>>({})
   
   const fetchStudents = async () => {
     setLoading(true)
     try {
       const data = await studentService.getAll()
       setStudents(data)
+      
+      // Pre-generate QR codes for print (small delay to avoid blocking UI)
+      setTimeout(async () => {
+        const qrPromises = data.map(async (s) => {
+          const url = await QRCode.toDataURL(s.nisn, { width: 200, margin: 1 })
+          return { id: s.id, url }
+        })
+        const results = await Promise.all(qrPromises)
+        const map: Record<string, string> = {}
+        results.forEach(r => map[r.id] = r.url)
+        setPrintData(map)
+      }, 500)
     } catch (error: any) {
       toast.error("Gagal mengambil data siswa: " + error.message)
     } finally {
@@ -55,6 +71,14 @@ export default function BulkQRGenerator() {
     const uniqueClasses = Array.from(new Set(students.map(s => s.class_name)))
     return ["all", ...uniqueClasses]
   }, [students])
+
+  const handlePrint = () => {
+    if (Object.keys(printData).length === 0) {
+      toast.error("Mohon tunggu, QR Code sedang diproses...")
+      return
+    }
+    window.print()
+  }
 
   const downloadAllAsExcel = () => {
     // Professional worksheet with clear structure
@@ -105,8 +129,26 @@ export default function BulkQRGenerator() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10 min-h-screen bg-slate-50/30">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-area, #print-area * { visibility: visible; }
+          #print-area { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 210mm;
+            padding: 10mm;
+            background: white;
+            display: block !important;
+          }
+          .page-break { page-break-after: always; }
+          @page { size: A4 portrait; margin: 0; }
+        }
+      `}</style>
+
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4 md:px-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4 md:px-0 print:hidden">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 mb-1">
             <Button variant="ghost" size="sm" asChild className="-ml-2 h-8">
@@ -115,20 +157,27 @@ export default function BulkQRGenerator() {
               </Link>
             </Button>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Bulk Data Export</h1>
-          <p className="text-muted-foreground font-medium">Layanan ekspor data massal untuk pembuatan kartu identitas / QR Code eksternal.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Bulk Data Export & Print</h1>
+          <p className="text-muted-foreground font-medium">Layanan ekspor data massal dan cetak kartu identitas otomatis.</p>
         </div>
         <div className="flex gap-2">
           <Button 
             onClick={downloadAllAsExcel}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200/50 transition-all h-11 font-bold rounded-xl px-6"
+            variant="outline"
+            className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 h-11 font-bold rounded-xl px-4"
           >
-            <FileDown className="mr-2 h-5 w-5" /> Export Data Profesional
+            <FileDown className="mr-2 h-5 w-5" /> Export Excel
+          </Button>
+          <Button 
+            onClick={handlePrint}
+            className="bg-slate-900 hover:bg-slate-800 text-white shadow-xl transition-all h-11 font-bold rounded-xl px-6"
+          >
+            <Printer className="mr-2 h-5 w-5" /> Cetak Kartu A4 (10/Hal)
           </Button>
         </div>
       </div>
 
-      <Card className="border-none shadow-sm rounded-2xl">
+      <Card className="border-none shadow-sm rounded-2xl print:hidden">
         <CardHeader className="bg-white border-b pb-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -209,6 +258,51 @@ export default function BulkQRGenerator() {
           )}
         </CardContent>
       </Card>
+
+      {/* Hidden Print Area */}
+      <div id="print-area" className="hidden">
+        <div className="grid grid-cols-2 gap-4">
+          {filteredStudents.map((student, index) => (
+            <React.Fragment key={student.id}>
+              <div 
+                className="w-[85.6mm] h-[54mm] border border-slate-300 rounded-lg p-2 flex bg-white overflow-hidden relative"
+                style={{ breakInside: 'avoid' }}
+              >
+                {/* School Header */}
+                <div className="absolute top-0 left-0 right-0 bg-slate-900 text-[8px] text-white py-1 px-3 flex justify-between items-center">
+                  <span className="font-black italic tracking-tighter">EDUPULSE SYSTEM</span>
+                  <span className="font-medium opacity-80 uppercase">SMP NEGERI 1 MANONJAYA</span>
+                </div>
+                
+                {/* Left Side: Info */}
+                <div className="flex flex-col justify-center flex-1 pt-4 pl-1">
+                  <h3 className="text-[10px] font-black leading-none text-slate-900 uppercase mb-1">{student.full_name}</h3>
+                  <div className="space-y-0.5">
+                    <p className="text-[8px] text-slate-500 font-bold leading-none"><span className="opacity-50">NISN:</span> {student.nisn}</p>
+                    <p className="text-[8px] text-slate-500 font-bold leading-none"><span className="opacity-50">KELAS:</span> {student.class_name}</p>
+                  </div>
+                  <div className="mt-2 bg-slate-100 text-[6px] text-slate-600 font-black px-1.5 py-0.5 rounded-full inline-block uppercase w-fit border border-slate-200">
+                    Kartu Identitas Presensi Digital
+                  </div>
+                </div>
+
+                {/* Right Side: QR */}
+                <div className="w-[45mm] flex items-center justify-center pt-2">
+                  {printData[student.id] ? (
+                    <img src={printData[student.id]} className="w-[35mm] h-[35mm]" alt="QR" />
+                  ) : (
+                    <div className="w-[35mm] h-[35mm] bg-slate-50 animate-pulse border border-dashed border-slate-200 rounded" />
+                  )}
+                </div>
+              </div>
+              {/* Force page break after 10 cards */}
+              {(index + 1) % 10 === 0 && (index + 1) !== filteredStudents.length && (
+                <div className="page-break col-span-2 h-0" />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
 
       {/* External Guideline Box */}
       <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-4 mx-4 md:mx-0 shadow-sm">
