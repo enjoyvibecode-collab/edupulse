@@ -13,7 +13,8 @@ import {
   List as ListIcon,
   ChevronLeft,
   FileDown,
-  Printer
+  Printer,
+  RefreshCw
 } from "lucide-react"
 import { studentService } from "@/lib/studentService"
 import { Student } from "@/types"
@@ -26,6 +27,7 @@ export default function BulkQRGenerator() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClass, setSelectedClass] = useState<string>("all")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [isGeneratingPrintQR, setIsGeneratingPrintQR] = useState(false)
 
   // Generate all QR URLs for printing
   const [printData, setPrintData] = useState<Record<string, string>>({})
@@ -36,17 +38,28 @@ export default function BulkQRGenerator() {
       const data = await studentService.getAll()
       setStudents(data)
       
-      // Pre-generate QR codes for print (small delay to avoid blocking UI)
+      // Pre-generate QR codes for print
+      setIsGeneratingPrintQR(true)
       setTimeout(async () => {
-        const qrPromises = data.map(async (s) => {
-          const url = await QRCode.toDataURL(s.nisn, { width: 200, margin: 1 })
-          return { id: s.id, url }
-        })
-        const results = await Promise.all(qrPromises)
-        const map: Record<string, string> = {}
-        results.forEach(r => map[r.id] = r.url)
-        setPrintData(map)
-      }, 500)
+        try {
+          const qrPromises = data.map(async (s) => {
+            const url = await QRCode.toDataURL(s.nisn, { 
+              width: 200, 
+              margin: 1,
+              color: { dark: '#0f172a', light: '#ffffff' }
+            })
+            return { id: s.id, url }
+          })
+          const results = await Promise.all(qrPromises)
+          const map: Record<string, string> = {}
+          results.forEach(r => map[r.id] = r.url)
+          setPrintData(map)
+        } catch (err) {
+          console.error("Failed to generate print QRs", err)
+        } finally {
+          setIsGeneratingPrintQR(false)
+        }
+      }, 800)
     } catch (error: any) {
       toast.error("Gagal mengambil data siswa: " + error.message)
     } finally {
@@ -73,11 +86,23 @@ export default function BulkQRGenerator() {
   }, [students])
 
   const handlePrint = () => {
-    if (Object.keys(printData).length === 0) {
-      toast.error("Mohon tunggu, QR Code sedang diproses...")
+    if (isGeneratingPrintQR) {
+      toast.info("Sedang menyiapkan data QR... Mohon tunggu sebentar.")
       return
     }
-    window.print()
+    if (Object.keys(printData).length === 0) {
+      toast.error("Data QR belum siap. Silakan refresh halaman.")
+      return
+    }
+    
+    // Check if we are in an iframe (AI Studio preview environment)
+    if (window.self !== window.top) {
+      toast.warning("Pencetakan mungkin terbatas dalam mode preview. Jika gagal, silakan buka aplikasi di tab baru.")
+    }
+    
+    setTimeout(() => {
+      window.print()
+    }, 300)
   }
 
   const downloadAllAsExcel = () => {
@@ -130,20 +155,58 @@ export default function BulkQRGenerator() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-10 min-h-screen bg-slate-50/30">
       <style>{`
+        #print-area { display: none; }
+        
         @media print {
-          body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { 
-            position: absolute; 
-            left: 0; 
-            top: 0; 
-            width: 210mm;
-            padding: 10mm;
-            background: white;
-            display: block !important;
+          body { 
+            background: white !important; 
+            margin: 0 !important; 
+            padding: 0 !important;
+            height: auto !important;
           }
-          .page-break { page-break-after: always; }
-          @page { size: A4 portrait; margin: 0; }
+          .print-hidden, .print\\:hidden { display: none !important; }
+          
+          #print-area { 
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 210mm;
+            padding: 5mm;
+            background: white;
+            z-index: 9999;
+          }
+          
+          .card-print {
+            width: 85.6mm;
+            height: 54mm;
+            border: 0.5pt solid #cbd5e1;
+            border-radius: 4mm;
+            padding: 3mm;
+            display: flex;
+            background: white;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            float: left;
+            margin: 2mm;
+          }
+          
+          .page-break { 
+            clear: both;
+            page-break-after: always; 
+            height: 0;
+          }
+          
+          @page { 
+            size: A4 portrait; 
+            margin: 0; 
+          }
+          
+          /* Hide everything else */
+          body > :not(#print-area) {
+            display: none !important;
+          }
         }
       `}</style>
 
@@ -170,9 +233,15 @@ export default function BulkQRGenerator() {
           </Button>
           <Button 
             onClick={handlePrint}
+            disabled={isGeneratingPrintQR}
             className="bg-slate-900 hover:bg-slate-800 text-white shadow-xl transition-all h-11 font-bold rounded-xl px-6"
           >
-            <Printer className="mr-2 h-5 w-5" /> Cetak Kartu A4 (10/Hal)
+            {isGeneratingPrintQR ? (
+              <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-5 w-5" />
+            )}
+            {isGeneratingPrintQR ? "Memproses QR..." : "Cetak Kartu A4 (10/Hal)"}
           </Button>
         </div>
       </div>
@@ -260,44 +329,41 @@ export default function BulkQRGenerator() {
       </Card>
 
       {/* Hidden Print Area */}
-      <div id="print-area" className="hidden">
-        <div className="grid grid-cols-2 gap-4">
+      <div id="print-area">
+        <div className="print-grid">
           {filteredStudents.map((student, index) => (
             <React.Fragment key={student.id}>
-              <div 
-                className="w-[85.6mm] h-[54mm] border border-slate-300 rounded-lg p-2 flex bg-white overflow-hidden relative"
-                style={{ breakInside: 'avoid' }}
-              >
+              <div className="card-print">
                 {/* School Header */}
-                <div className="absolute top-0 left-0 right-0 bg-slate-900 text-[8px] text-white py-1 px-3 flex justify-between items-center">
-                  <span className="font-black italic tracking-tighter">EDUPULSE SYSTEM</span>
-                  <span className="font-medium opacity-80 uppercase">SMP NEGERI 1 MANONJAYA</span>
+                <div className="absolute top-0 left-0 right-0 bg-slate-900 text-[7px] text-white py-1 px-3 flex justify-between items-center">
+                  <span className="font-black italic tracking-tighter">EDUPULSE</span>
+                  <span className="font-bold opacity-80 uppercase overflow-hidden whitespace-nowrap">SMPN 1 MANONJAYA</span>
                 </div>
                 
                 {/* Left Side: Info */}
-                <div className="flex flex-col justify-center flex-1 pt-4 pl-1">
-                  <h3 className="text-[10px] font-black leading-none text-slate-900 uppercase mb-1">{student.full_name}</h3>
+                <div className="flex flex-col justify-center flex-1 pt-3">
+                  <h3 className="text-[9px] font-black leading-tight text-slate-900 uppercase mb-1 line-clamp-2">{student.full_name}</h3>
                   <div className="space-y-0.5">
-                    <p className="text-[8px] text-slate-500 font-bold leading-none"><span className="opacity-50">NISN:</span> {student.nisn}</p>
-                    <p className="text-[8px] text-slate-500 font-bold leading-none"><span className="opacity-50">KELAS:</span> {student.class_name}</p>
+                    <p className="text-[7px] text-slate-500 font-bold leading-none">NISN: {student.nisn}</p>
+                    <p className="text-[7px] text-slate-500 font-bold leading-none">KELAS: {student.class_name}</p>
                   </div>
-                  <div className="mt-2 bg-slate-100 text-[6px] text-slate-600 font-black px-1.5 py-0.5 rounded-full inline-block uppercase w-fit border border-slate-200">
-                    Kartu Identitas Presensi Digital
+                  <div className="mt-2 bg-slate-100 text-[5px] text-slate-800 font-black px-1 py-0.5 rounded-full inline-block uppercase w-fit border border-slate-200">
+                    ID CARD DIGITAL
                   </div>
                 </div>
 
                 {/* Right Side: QR */}
-                <div className="w-[45mm] flex items-center justify-center pt-2">
+                <div className="w-[35mm] flex items-center justify-end">
                   {printData[student.id] ? (
-                    <img src={printData[student.id]} className="w-[35mm] h-[35mm]" alt="QR" />
+                    <img src={printData[student.id]} className="w-[28mm] h-[28mm]" alt="QR" />
                   ) : (
-                    <div className="w-[35mm] h-[35mm] bg-slate-50 animate-pulse border border-dashed border-slate-200 rounded" />
+                    <div className="w-[28mm] h-[28mm] bg-slate-50 border border-dashed border-slate-200 rounded" />
                   )}
                 </div>
               </div>
-              {/* Force page break after 10 cards */}
+              {/* Force page break after 10 cards (2 columns x 5 rows) */}
               {(index + 1) % 10 === 0 && (index + 1) !== filteredStudents.length && (
-                <div className="page-break col-span-2 h-0" />
+                <div className="page-break" />
               )}
             </React.Fragment>
           ))}
