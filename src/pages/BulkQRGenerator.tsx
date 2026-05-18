@@ -197,8 +197,10 @@ export default function BulkQRGenerator() {
             display: block !important;
             visibility: visible !important;
             width: 210mm !important;
-            padding: 5mm !important;
+            min-height: 297mm !important;
+            padding: 15mm 24mm !important; /* Centering the 162mm grid on 210mm paper */
             background: white !important;
+            margin: 0 auto !important;
           }
           
           #print-area * {
@@ -208,16 +210,18 @@ export default function BulkQRGenerator() {
           }
           
           .print-grid {
-            display: block !important;
-            width: 100%;
+            display: grid !important;
+            grid-template-columns: repeat(3, 54mm) !important;
+            gap: 4mm !important; /* Small gap for cutting space */
+            width: fit-content !important;
           }
 
           .card-print {
-            width: 85.6mm;
-            height: 54mm;
-            border: 0.3pt solid #e2e8f0;
-            border-radius: 3mm;
-            padding: 2mm;
+            width: 54mm;
+            height: 86mm;
+            border: 0.2pt solid #e2e8f0;
+            border-radius: 2mm;
+            padding: 4mm 3mm;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -226,17 +230,27 @@ export default function BulkQRGenerator() {
             position: relative;
             overflow: hidden;
             box-sizing: border-box;
-            float: left;
-            margin: 1.5mm;
             page-break-inside: avoid;
             text-align: center;
           }
+
+          /* Guide marks for cutting */
+          .card-print::before, .card-print::after {
+            content: '';
+            position: absolute;
+            width: 3mm;
+            height: 3mm;
+            border: 0.1pt solid #cbd5e1;
+            pointer-events: none;
+          }
+          .card-print::before { top: 0; left: 0; border-right: none; border-bottom: none; }
+          .card-print::after { bottom: 0; right: 0; border-left: none; border-top: none; }
           
           .page-break { 
-            clear: both;
+            display: block !important;
             page-break-after: always; 
             height: 0;
-            display: block !important;
+            grid-column: 1 / -1;
           }
           
           @page { 
@@ -277,7 +291,7 @@ export default function BulkQRGenerator() {
             ) : (
               <Printer className="mr-2 h-5 w-5" />
             )}
-            {isGeneratingPrintQR ? "Memproses QR..." : "Cetak Kartu A4 (10/Hal)"}
+            {isGeneratingPrintQR ? "Memproses QR..." : "Cetak Kartu A4 (9/Hal)"}
           </Button>
         </div>
       </div>
@@ -376,41 +390,41 @@ export default function BulkQRGenerator() {
               <div className="card-print">
                 {/* Header Text */}
                 <div className="flex flex-col items-center">
-                  <span className="text-[12pt] font-black text-slate-800 leading-tight uppercase tracking-tight">SCAN HERE</span>
-                  <span className="text-[6pt] font-bold text-slate-500 uppercase tracking-[0.2em] -mt-0.5">FOR ATTENDANCE</span>
+                  <span className="text-[14pt] font-black text-slate-800 leading-tight uppercase tracking-tight">SCAN HERE</span>
+                  <span className="text-[7pt] font-bold text-slate-500 uppercase tracking-[0.25em] -mt-1">FOR ATTENDANCE</span>
                 </div>
                 
                 {/* QR Section with Frame */}
-                <div className="relative p-1">
+                <div className="relative p-2.5">
                   {/* Corner Borders (Scanning Frame) */}
-                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-900 rounded-tl-[1mm]" />
-                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-900 rounded-tr-[1mm]" />
-                  <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-900 rounded-bl-[1mm]" />
-                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-900 rounded-br-[1mm]" />
+                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-slate-900 rounded-tl-[1.5mm]" />
+                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-slate-900 rounded-tr-[1.5mm]" />
+                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-slate-900 rounded-bl-[1.5mm]" />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-slate-900 rounded-br-[1.5mm]" />
                   
                   {printData[student.id] ? (
-                    <img src={printData[student.id]} className="w-[28mm] h-[28mm] object-contain p-0.5" alt="QR" />
+                    <img src={printData[student.id]} className="w-[32mm] h-[32mm] object-contain p-1" alt="QR" />
                   ) : (
-                    <div className="w-[28mm] h-[28mm] flex items-center justify-center text-[5pt] text-slate-300">
-                      Generating QR...
+                    <div className="w-[32mm] h-[32mm] flex items-center justify-center text-[6pt] text-slate-300 italic">
+                      Generating...
                     </div>
                   )}
                 </div>
-
+ 
                 {/* Footer Info */}
-                <div className="flex flex-col items-center -mt-1">
-                   <span className="text-[8pt] font-black text-slate-900 leading-none uppercase">{student.full_name}</span>
-                   <span className="text-[7pt] font-bold text-slate-600 mt-0.5">{student.nisn}</span>
-                   <span className="text-[7pt] font-black text-slate-700">{student.class_name}</span>
+                <div className="flex flex-col items-center">
+                   <span className="text-[9pt] font-black text-slate-900 leading-none uppercase mb-1">{student.full_name}</span>
+                   <span className="text-[8pt] font-bold text-slate-600 leading-none mb-1">{student.nisn}</span>
+                   <span className="text-[8pt] font-black text-slate-700 leading-none">{student.class_name}</span>
                 </div>
-
+ 
                 {/* Team Pill */}
-                <div className="mt-1 bg-slate-800 text-white text-[5pt] px-4 py-1 rounded-full font-black tracking-widest uppercase mb-1">
+                <div className="bg-slate-800 text-white text-[6pt] w-full py-1.5 rounded-xl font-black tracking-[0.2em] uppercase shrink-0">
                   TIM NESATMA
                 </div>
               </div>
-              {/* Force page break after 10 cards (2 columns x 5 rows) */}
-              {(index + 1) % 10 === 0 && (index + 1) !== filteredStudents.length && (
+              {/* Force page break after 9 cards (3 columns x 3 rows) */}
+              {(index + 1) % 9 === 0 && (index + 1) !== filteredStudents.length && (
                 <div className="page-break" />
               )}
             </React.Fragment>
