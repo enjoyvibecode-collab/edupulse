@@ -191,56 +191,98 @@ export default function AIScanner() {
     }
   }, [])
 
-  const startQRScanner = async () => {
-    if (!videoRef.current) return
-    
+  const [activeCameraId, setActiveCameraId] = useState<string | null>(null)
+  const [availableCameras, setAvailableCameras] = useState<any[]>([])
+
+  const startQRScanner = async (cameraId?: string) => {
+    // Safety delay to ensure DOM is ready and previous camera is fully released
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     try {
       if (qrScannerRef.current) {
-        await stopQRScanner()
+        try {
+          await qrScannerRef.current.stop();
+        } catch (e) {}
+      }
+
+      const element = document.getElementById("qr-reader");
+      if (!element) {
+        console.warn("QR Reader element not found in DOM yet, retrying...");
+        setTimeout(() => startQRScanner(cameraId), 200);
+        return;
       }
 
       const qrScanner = new Html5Qrcode("qr-reader")
       qrScannerRef.current = qrScanner
+      
+      // Get available cameras if not yet fetched
+      if (availableCameras.length === 0) {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          setAvailableCameras(cameras);
+        }
+      }
 
-      const config = { fps: 10, qrbox: { width: 250, height: 250 } }
+      // Smaller qrbox for mobile compatibility
+      const config = { 
+        fps: 20, 
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxSize = Math.floor(minEdge * 0.7);
+          return { width: qrboxSize, height: qrboxSize };
+        },
+        aspectRatio: 1.0,
+        videoConstraints: cameraId ? { deviceId: { exact: cameraId } } : { facingMode: "user" }
+      }
+      
+      const targetCamera = cameraId || { facingMode: "user" };
       
       await qrScanner.start(
-        { facingMode: "user" },
+        targetCamera,
         config,
         async (decodedText) => {
-          // Prevent multiple scans during cooldown
           if (cooldown) return
-
-          // Find student by NISN
           const student = studentsWithFaces.find(s => s.nisn === decodedText)
           if (student) {
             setRecognitionStatus("recognized")
             setLastRecognizedData(student)
-            
             const now = Date.now()
-            if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) {
-              return
-            }
-
-            handleAutoAttendance(student.id, 0.1) // 0.1 distance for QR as it's perfect match
+            if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) return
+            handleAutoAttendance(student.id, 0.1)
             lastRecognizedIdRef.current = student.id
             lastRecognizedTimeRef.current = now
           } else {
             setRecognitionStatus("unknown")
-            toast.error("QR Code tidak dikenal")
+            toast.error("QR Code tidak dikenal: " + decodedText)
           }
         },
-        () => {} // silent error for frame scanning
+        () => {} 
       )
-    } catch (err) {
+      
+      if (cameraId) setActiveCameraId(cameraId);
+    } catch (err: any) {
       console.error("QR Start Error:", err)
-      toast.error("Gagal memulai QR Scanner")
+      // If "user" failed, try to just pick the first camera
+      if (!cameraId && err?.message?.includes("NotFound")) {
+         const cameras = await Html5Qrcode.getCameras();
+         if (cameras && cameras.length > 0) {
+           startQRScanner(cameras[0].id);
+         }
+      } else {
+        toast.error("Gagal memulai QR Scanner: " + err.message)
+      }
     }
   }
 
   const stopQRScanner = async () => {
-    if (qrScannerRef.current && qrScannerRef.current.isScanning) {
-      await qrScannerRef.current.stop()
+    if (qrScannerRef.current) {
+      if (qrScannerRef.current.isScanning) {
+        try {
+          await qrScannerRef.current.stop()
+        } catch (e) {
+          console.warn("Error stopping scanner:", e)
+        }
+      }
       qrScannerRef.current = null
     }
   }
@@ -646,13 +688,32 @@ export default function AIScanner() {
                     />
                   </>
                 ) : (
-                  <div className="relative w-full h-full">
-                    <div id="qr-reader" className="w-full h-full [&_video]:object-cover [&_video]:rounded-[2.5rem]" />
-                    <div className="absolute inset-0 pointer-events-none border-[40px] md:border-[80px] border-slate-950/40 z-10">
+                  <div className="relative w-full h-full bg-slate-900 overflow-hidden">
+                    <div id="qr-reader" className="w-full h-full [&_video]:object-cover" />
+                    
+                    {/* Camera Switcher inside QR Mode */}
+                    {availableCameras.length > 1 && (
+                      <div className="absolute bottom-6 right-6 z-30">
+                        <Button 
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const currentIndex = availableCameras.findIndex(c => c.id === activeCameraId);
+                            const nextIndex = (currentIndex + 1) % availableCameras.length;
+                            startQRScanner(availableCameras[nextIndex].id);
+                          }}
+                          className="rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 font-black text-[9px] uppercase tracking-widest h-10 px-4"
+                        >
+                          <Camera className="mr-2 h-3 w-3" /> Ganti Kamera
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 pointer-events-none border-[30px] md:border-[80px] border-slate-950/40 z-10">
                       <div className="w-full h-full border-2 border-emerald-500/50 rounded-2xl relative">
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-10">
-                          <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.2em] bg-slate-900/80 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/5">
-                            Scan Student Card QR
+                          <span className="text-[10px] font-black text-white/80 whitespace-nowrap uppercase tracking-[0.2em] bg-slate-900/90 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
+                            Scan Card QR Code
                           </span>
                         </div>
                         {/* Corner Accents for QR Box */}
