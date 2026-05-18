@@ -61,8 +61,11 @@ export default function AIScanner() {
   const lastRecognizedIdRef = useRef<string | null>(null)
   const lastRecognizedTimeRef = useRef<number>(0)
 
+  const isMounted = useRef(true)
+
   // 1. Initial Load: Models & Student Data
   useEffect(() => {
+    isMounted.current = true;
     // Timer to update UI every minute
     const timer = setInterval(() => {
       const now = new Date()
@@ -187,6 +190,7 @@ export default function AIScanner() {
       .subscribe()
 
     return () => {
+      isMounted.current = false;
       clearInterval(timer)
       stopVideo()
       stopQRScanner()
@@ -408,6 +412,13 @@ export default function AIScanner() {
     const now = new Date()
     if (!isWindowActive(scannerMode, now)) {
       console.warn(`Attendance blocked: Outside ${scannerMode} window`)
+      toast.error(`Terminal Presensi ${scannerMode.replace('_', ' ')} Sedang Tutup`, {
+        description: "Silahkan ganti mode manual atau tunggu jadwal berikutnya."
+      })
+      // Clear recognition status after a short delay so user can read the error
+      setTimeout(() => {
+        if (isMounted.current) setRecognitionStatus("idle");
+      }, 3000);
       return
     }
 
@@ -445,20 +456,21 @@ export default function AIScanner() {
 
   // 3. Recognition Loop
   const runRecognition = useCallback(async () => {
-    if (!videoRef.current || videoRef.current.readyState !== 4 || !canvasRef.current || !modelsLoaded) {
-      recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+    if (!isMounted.current || !videoRef.current || videoRef.current.readyState !== 4 || !canvasRef.current || !modelsLoaded) {
+      if (isMounted.current) {
+        recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+      }
       return
     }
 
     try {
-      if (!videoRef.current || videoRef.current.readyState !== 4 || !canvasRef.current || !modelsLoaded) {
-        recognitionLoopRef.current = requestAnimationFrame(runRecognition)
-        return
-      }
-
       const video = videoRef.current
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+      const canvas = canvasRef.current
+
+      if (!video || !canvas || video.videoWidth === 0 || video.videoHeight === 0) {
+        if (isMounted.current) {
+          recognitionLoopRef.current = requestAnimationFrame(runRecognition)
+        }
         return
       }
 
@@ -470,7 +482,8 @@ export default function AIScanner() {
         .withFaceLandmarks()
         .withFaceDescriptors()
 
-      const canvas = canvasRef.current
+      if (!isMounted.current) return;
+
       const displaySize = { 
         width: video.videoWidth, 
         height: video.videoHeight 
@@ -643,23 +656,25 @@ export default function AIScanner() {
                 <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-10 h-10 md:w-16 md:h-16 border-b-4 border-l-4 border-primary rounded-bl-xl md:rounded-bl-2xl opacity-50" />
                 <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 w-10 h-10 md:w-16 md:h-16 border-b-4 border-r-4 border-primary rounded-br-xl md:rounded-br-2xl opacity-50" />
                 
-                {/* Face Guide Circle */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div className={`w-[180px] h-[240px] md:w-[220px] md:h-[280px] border-4 border-dashed rounded-[80px] md:rounded-[100px] transition-all duration-300 ${
-                    cooldown ? 'border-primary/0' : 
-                    recognitionStatus === 'recognized' ? 'border-emerald-500 scale-105' : 
-                    recognitionStatus === 'unknown' ? 'border-rose-500' : 
-                    'border-white/30'
-                  }`}>
-                    {!cooldown && (
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
-                         <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
-                           Align Face Here
-                         </span>
-                      </div>
-                    )}
+                {/* Face Guide Circle - Only show in Face Mode */}
+                {scanMethod === 'face' && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div className={`w-[180px] h-[240px] md:w-[220px] md:h-[280px] border-4 border-dashed rounded-[80px] md:rounded-[100px] transition-all duration-300 ${
+                      cooldown ? 'border-primary/0' : 
+                      recognitionStatus === 'recognized' ? 'border-emerald-500 scale-105' : 
+                      recognitionStatus === 'unknown' ? 'border-rose-500' : 
+                      'border-white/30'
+                    }`}>
+                      {!cooldown && (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                           <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">
+                             Align Face Here
+                           </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Success Pop-up Overlay */}
                 {showSuccessOverlay && (
@@ -800,9 +815,9 @@ export default function AIScanner() {
                      recognitionStatus === 'unknown' ? <ShieldAlert className="w-5 h-5" /> : 
                      <Loader2 className="w-5 h-5 animate-spin" />}
                     <span className="text-xs font-black uppercase tracking-[0.2em]">
-                      {recognitionStatus === 'recognized' ? 'Face Verified' : 
-                       recognitionStatus === 'unknown' ? 'Unknown Identity' : 
-                       'Scanning Network...'}
+                      {recognitionStatus === 'recognized' ? 'Identity Match' : 
+                       recognitionStatus === 'unknown' ? 'Unknown ID' : 
+                       'Waiting for target...'}
                     </span>
                   </div>
                 </div>

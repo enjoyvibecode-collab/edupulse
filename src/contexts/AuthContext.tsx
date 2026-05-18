@@ -135,27 +135,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', userId)
               .maybeSingle(),
-            attempts === 0 ? 20000 : 40000, // Reduced timeouts
+            attempts === 0 ? 15000 : 25000, 
             'Profile Fetch'
-          ) as any;
+          ).catch(e => {
+            if (attempts < maxAttempts - 1) throw e;
+            return { data: null, error: e };
+          }) as any;
           
           data = result.data;
           error = result.error;
           
-          if (!error) break; // Success
+          if (!error || !error.message?.includes('timeout')) break; 
         } catch (err: any) {
           error = err;
-          // If it's a timeout, we retry
-          if (err.message.includes('timeout') && attempts < maxAttempts - 1) {
+          if (err.message?.includes('timeout') && attempts < maxAttempts - 1) {
             console.warn(`Profile fetch attempt ${attempts + 1} timed out, retrying...`);
           } else {
-            throw err;
+            break;
           }
         }
         attempts++;
       }
 
-      if (error) throw error;
+      if (error && error.message?.includes('timeout')) {
+         console.warn("Profile fetch persistently timed out. Continuing as guest-profile.");
+      } else if (error) {
+         throw error;
+      }
       
       if (isMounted.current) {
         setProfile(data);
