@@ -2,33 +2,69 @@ import * as React from "react"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { Separator } from "@/components/ui/separator"
-import { Bell, Search, LayoutDashboard, Users, Clock, Scan, Settings, LogOut, FileText } from "lucide-react"
+import { 
+  Bell, 
+  Search, 
+  LayoutDashboard, 
+  Users, 
+  Clock, 
+  Scan, 
+  Settings, 
+  LogOut, 
+  FileText, 
+  MoreHorizontal,
+  QrCode,
+  Loader2
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+  const [loggingOut, setLoggingOut] = React.useState(false)
+  const [isMoreOpen, setIsMoreOpen] = React.useState(false)
 
-  const adminMobileItems = (profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah')
-    ? [{ title: "Users", icon: Users, path: "/users" }]
-    : []
+  const handleSignOut = async () => {
+    setLoggingOut(true)
+    try {
+      await signOut()
+      navigate("/login")
+    } catch (error) {
+      console.error("Logout failed:", error)
+    } finally {
+      setLoggingOut(false)
+    }
+  }
 
-  const mobileMenuItems = [
+  const isAdmin = profile?.role === 'platform_owner' || profile?.role === 'admin_sekolah'
+
+  const bottomNavItems = [
     { title: "Home", icon: LayoutDashboard, path: "/" },
-    ...adminMobileItems,
-    { title: "Students", icon: Users, path: "/students" },
-    { title: "Reports", icon: FileText, path: "/reports" },
+    { title: "Siswa", icon: Users, path: "/students" },
     { title: "Scan", icon: Scan, path: "/scanner" },
-    { title: "Absen", icon: Clock, path: "/attendance" },
-    { title: "Set", icon: Settings, path: "/settings" },
+    { title: "Report", icon: FileText, path: "/reports" },
+  ]
+
+  const moreItems = [
+    ...(isAdmin ? [{ title: "User Manager", icon: Users, path: "/users" }] : []),
+    { title: "Attendance", icon: Clock, path: "/attendance" },
+    { title: "Bulk QR", icon: QrCode, path: "/students/bulk-qr" },
+    { title: "Pengaturan", icon: Settings, path: "/settings" },
   ]
 
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-slate-50/50 font-sans">
-        {/* Sidebar - Hidden on extreme small screens via sidebar logic, but standard for desktop */}
         <AppSidebar />
         
         <main className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0">
@@ -81,7 +117,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           {/* Mobile Bottom Navigation Bar */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-100 flex items-center justify-around px-2 z-50 rounded-t-[1.5rem] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            {mobileMenuItems.map((item) => {
+            {bottomNavItems.map((item) => {
               const isActive = location.pathname === item.path
               return (
                 <Link
@@ -104,6 +140,67 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               )
             })}
+            
+            <Sheet open={isMoreOpen} onOpenChange={setIsMoreOpen}>
+              <SheetTrigger asChild>
+                <button
+                  className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 ${
+                    isMoreOpen ? "text-primary translate-y-[-4px]" : "text-slate-400"
+                  }`}
+                >
+                  <div className={`p-2 rounded-2xl transition-all duration-300 ${
+                    isMoreOpen ? "bg-primary/10 shadow-lg shadow-primary/5" : ""
+                  }`}>
+                    <MoreHorizontal size={22} className={isMoreOpen ? "scale-110" : ""} />
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                    isMoreOpen ? "opacity-100" : "opacity-0 invisible h-0"
+                  }`}>
+                    Menu
+                  </span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="rounded-t-[2rem] p-6">
+                <SheetHeader className="mb-6">
+                  <SheetTitle className="text-xl font-black uppercase italic tracking-tighter text-primary">
+                    Navigasi Lainnya
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="grid grid-cols-2 gap-4">
+                  {moreItems.map((item) => {
+                    const isActive = location.pathname === item.path
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setIsMoreOpen(false)}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all ${
+                          isActive 
+                            ? "bg-primary/5 border-primary text-primary" 
+                            : "bg-slate-50 border-transparent text-slate-600 active:bg-slate-100"
+                        }`}
+                      >
+                        <item.icon className={`mb-2 ${isActive ? "text-primary" : "text-slate-400"}`} size={24} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-center">{item.title}</span>
+                      </Link>
+                    )
+                  })}
+                  
+                  <button
+                    onClick={handleSignOut}
+                    disabled={loggingOut}
+                    className="flex flex-col items-center justify-center p-4 rounded-2xl border border-transparent bg-red-50 text-red-600 active:bg-red-100 col-span-2 mt-2"
+                  >
+                    {loggingOut ? (
+                      <Loader2 className="mb-2 animate-spin" size={24} />
+                    ) : (
+                      <LogOut className="mb-2" size={24} />
+                    )}
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{loggingOut ? "MENGELUARKAN..." : "KELUAR SESI"}</span>
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </nav>
         </main>
       </div>
