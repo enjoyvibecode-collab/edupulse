@@ -168,13 +168,17 @@ export default function BulkQRGenerator() {
             background: white !important;
           }
 
-          /* Better strategy: hide UI specifically */
+          /* Hide ALL layout containers except the ones containing print-area */
           header, 
           nav, 
           aside,
+          footer,
           .md\\:hidden,
           .print-hidden,
-          .print\\:hidden {
+          .print\\:hidden,
+          .bg-emerald-50,
+          button,
+          .Card:not(#print-area) {
             display: none !important;
           }
 
@@ -197,30 +201,35 @@ export default function BulkQRGenerator() {
             background: white !important;
           }
           
-          /* Hide the screen-only UI inside BulkQRGenerator */
-          .pb-10, .space-y-6, .flex-col, .Card, .bg-emerald-50 {
-             /* We need to be careful not to hide the whole component */
-          }
-
           #print-area * {
             visibility: visible !important;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
           
+          .print-grid {
+            display: block !important;
+            width: 100%;
+          }
+
           .card-print {
             width: 85.6mm;
             height: 54mm;
-            border: 0.5pt solid #cbd5e1;
-            border-radius: 4mm;
-            padding: 3mm;
-            display: flex !important;
+            border: 0.3pt solid #e2e8f0;
+            border-radius: 3mm;
+            padding: 2mm;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
             background: white !important;
             position: relative;
             overflow: hidden;
             box-sizing: border-box;
             float: left;
-            margin: 2mm;
+            margin: 1.5mm;
             page-break-inside: avoid;
-            -webkit-print-color-adjust: exact;
+            text-align: center;
           }
           
           .page-break { 
@@ -365,31 +374,39 @@ export default function BulkQRGenerator() {
           {filteredStudents.map((student, index) => (
             <React.Fragment key={student.id}>
               <div className="card-print">
-                {/* School Header */}
-                <div className="absolute top-0 left-0 right-0 bg-slate-900 text-[7px] text-white py-1 px-3 flex justify-between items-center">
-                  <span className="font-black italic tracking-tighter">EDUPULSE</span>
-                  <span className="font-bold opacity-80 uppercase overflow-hidden whitespace-nowrap">SMPN 1 MANONJAYA</span>
+                {/* Header Text */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[12pt] font-black text-slate-800 leading-tight uppercase tracking-tight">SCAN HERE</span>
+                  <span className="text-[6pt] font-bold text-slate-500 uppercase tracking-[0.2em] -mt-0.5">FOR ATTENDANCE</span>
                 </div>
                 
-                {/* Left Side: Info */}
-                <div className="flex flex-col justify-center flex-1 pt-3">
-                  <h3 className="text-[9px] font-black leading-tight text-slate-900 uppercase mb-1 line-clamp-2">{student.full_name}</h3>
-                  <div className="space-y-0.5">
-                    <p className="text-[7px] text-slate-500 font-bold leading-none">NISN: {student.nisn}</p>
-                    <p className="text-[7px] text-slate-500 font-bold leading-none">KELAS: {student.class_name}</p>
-                  </div>
-                  <div className="mt-2 bg-slate-100 text-[5px] text-slate-800 font-black px-1 py-0.5 rounded-full inline-block uppercase w-fit border border-slate-200">
-                    ID CARD DIGITAL
-                  </div>
+                {/* QR Section with Frame */}
+                <div className="relative p-1">
+                  {/* Corner Borders (Scanning Frame) */}
+                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-900 rounded-tl-[1mm]" />
+                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-900 rounded-tr-[1mm]" />
+                  <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-900 rounded-bl-[1mm]" />
+                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-900 rounded-br-[1mm]" />
+                  
+                  {printData[student.id] ? (
+                    <img src={printData[student.id]} className="w-[28mm] h-[28mm] object-contain p-0.5" alt="QR" />
+                  ) : (
+                    <div className="w-[28mm] h-[28mm] flex items-center justify-center text-[5pt] text-slate-300">
+                      Generating QR...
+                    </div>
+                  )}
                 </div>
 
-                {/* Right Side: QR */}
-                <div className="w-[35mm] flex items-center justify-end">
-                  {printData[student.id] ? (
-                    <img src={printData[student.id]} className="w-[28mm] h-[28mm]" alt="QR" />
-                  ) : (
-                    <div className="w-[28mm] h-[28mm] bg-slate-50 border border-dashed border-slate-200 rounded" />
-                  )}
+                {/* Footer Info */}
+                <div className="flex flex-col items-center -mt-1">
+                   <span className="text-[8pt] font-black text-slate-900 leading-none uppercase">{student.full_name}</span>
+                   <span className="text-[7pt] font-bold text-slate-600 mt-0.5">{student.nisn}</span>
+                   <span className="text-[7pt] font-black text-slate-700">{student.class_name}</span>
+                </div>
+
+                {/* Team Pill */}
+                <div className="mt-1 bg-slate-800 text-white text-[5pt] px-4 py-1 rounded-full font-black tracking-widest uppercase mb-1">
+                  TIM NESATMA
                 </div>
               </div>
               {/* Force page break after 10 cards (2 columns x 5 rows) */}
@@ -402,7 +419,7 @@ export default function BulkQRGenerator() {
       </div>
 
       {/* External Guideline Box */}
-      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-4 mx-4 md:mx-0 shadow-sm">
+      <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex flex-col md:flex-row items-center md:items-start gap-4 mx-4 md:mx-0 shadow-sm print:hidden">
         <div className="bg-white p-3 rounded-2xl shadow-sm border border-emerald-200">
            <FileDown className="h-8 w-8 text-emerald-600" />
         </div>
