@@ -58,9 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const sessionResult = await withTimeout(
           supabase.auth.getSession(),
-          30000,
+          40000,
           'Auth Session Initialization'
-        ) as any;
+        ).catch(err => {
+          console.warn('Silent timeout on session fetch, checking onAuthStateChange...');
+          return { data: { session: null } };
+        }) as any;
         const session = sessionResult?.data?.session;
         
         if (isMounted.current && session?.user) {

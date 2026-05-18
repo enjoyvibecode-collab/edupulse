@@ -431,5 +431,9 @@ export const studentService = {
        return new Date();
     }
     return new Date(data);
+  },
+
+  clearCache() {
+    clearCache();
   }
 };

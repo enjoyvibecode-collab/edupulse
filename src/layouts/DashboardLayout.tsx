@@ -142,24 +142,28 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             })}
             
             <Sheet open={isMoreOpen} onOpenChange={setIsMoreOpen}>
-              <SheetTrigger asChild>
-                <button
-                  className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 ${
-                    isMoreOpen ? "text-primary translate-y-[-4px]" : "text-slate-400"
-                  }`}
-                >
-                  <div className={`p-2 rounded-2xl transition-all duration-300 ${
-                    isMoreOpen ? "bg-primary/10 shadow-lg shadow-primary/5" : ""
-                  }`}>
-                    <MoreHorizontal size={22} className={isMoreOpen ? "scale-110" : ""} />
+              <SheetTrigger 
+                render={
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-300 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/20 ${
+                      isMoreOpen ? "text-primary translate-y-[-4px]" : "text-slate-400"
+                    }`}
+                  >
+                    <div className={`p-2 rounded-2xl transition-all duration-300 ${
+                      isMoreOpen ? "bg-primary/10 shadow-lg shadow-primary/5" : ""
+                    }`}>
+                      <MoreHorizontal size={22} className={isMoreOpen ? "scale-110" : ""} />
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                      isMoreOpen ? "opacity-100" : "opacity-0 invisible h-0"
+                    }`}>
+                      Menu
+                    </span>
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
-                    isMoreOpen ? "opacity-100" : "opacity-0 invisible h-0"
-                  }`}>
-                    Menu
-                  </span>
-                </button>
-              </SheetTrigger>
+                }
+              />
               <SheetContent side="bottom" className="rounded-t-[2rem] p-6">
                 <SheetHeader className="mb-6">
                   <SheetTitle className="text-xl font-black uppercase italic tracking-tighter text-primary">

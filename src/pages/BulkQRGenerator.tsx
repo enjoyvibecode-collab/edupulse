@@ -219,9 +219,9 @@ export default function BulkQRGenerator() {
           .card-print {
             width: 54mm;
             height: 86mm;
-            border: 0.2pt solid #e2e8f0;
-            border-radius: 2mm;
-            padding: 4mm 3mm;
+            border: 0.1pt solid #e2e8f0;
+            border-radius: 4mm;
+            padding: 8mm 4mm;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -232,19 +232,19 @@ export default function BulkQRGenerator() {
             box-sizing: border-box;
             page-break-inside: avoid;
             text-align: center;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
 
-          /* Guide marks for cutting */
-          .card-print::before, .card-print::after {
+          /* Guide marks for cutting - very subtle */
+          .card-print::before {
             content: '';
             position: absolute;
-            width: 3mm;
-            height: 3mm;
-            border: 0.1pt solid #cbd5e1;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border: 0.05pt solid #f1f5f9;
             pointer-events: none;
+            border-radius: 4mm;
           }
-          .card-print::before { top: 0; left: 0; border-right: none; border-bottom: none; }
-          .card-print::after { bottom: 0; right: 0; border-left: none; border-top: none; }
           
           .page-break { 
             display: block !important;
@@ -389,37 +389,37 @@ export default function BulkQRGenerator() {
             <React.Fragment key={student.id}>
               <div className="card-print">
                 {/* Header Text */}
-                <div className="flex flex-col items-center">
-                  <span className="text-[14pt] font-black text-slate-800 leading-tight uppercase tracking-tight">SCAN HERE</span>
-                  <span className="text-[7pt] font-bold text-slate-500 uppercase tracking-[0.25em] -mt-1">FOR ATTENDANCE</span>
+                <div className="flex flex-col items-center mb-2">
+                  <span className="text-[18pt] font-black text-slate-800 leading-tight uppercase tracking-tight">SCAN HERE</span>
+                  <span className="text-[7pt] font-medium text-slate-500 uppercase tracking-[0.3em] mt-1">FOR ATTENDANCE</span>
                 </div>
                 
                 {/* QR Section with Frame */}
-                <div className="relative p-2.5">
+                <div className="relative p-3 mb-2">
                   {/* Corner Borders (Scanning Frame) */}
-                  <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-slate-900 rounded-tl-[1.5mm]" />
-                  <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-slate-900 rounded-tr-[1.5mm]" />
-                  <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-slate-900 rounded-bl-[1.5mm]" />
-                  <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-slate-900 rounded-br-[1.5mm]" />
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-slate-900 rounded-tl-[2mm]" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-slate-900 rounded-tr-[2mm]" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-slate-900 rounded-bl-[2mm]" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-slate-900 rounded-br-[2mm]" />
                   
                   {printData[student.id] ? (
-                    <img src={printData[student.id]} className="w-[32mm] h-[32mm] object-contain p-1" alt="QR" />
+                    <img src={printData[student.id]} className="w-[34mm] h-[34mm] object-contain p-1.5" alt="QR" />
                   ) : (
-                    <div className="w-[32mm] h-[32mm] flex items-center justify-center text-[6pt] text-slate-300 italic">
+                    <div className="w-[34mm] h-[34mm] flex items-center justify-center text-[6pt] text-slate-300 italic">
                       Generating...
                     </div>
                   )}
                 </div>
  
                 {/* Footer Info */}
-                <div className="flex flex-col items-center">
-                   <span className="text-[9pt] font-black text-slate-900 leading-none uppercase mb-1">{student.full_name}</span>
-                   <span className="text-[8pt] font-bold text-slate-600 leading-none mb-1">{student.nisn}</span>
-                   <span className="text-[8pt] font-black text-slate-700 leading-none">{student.class_name}</span>
+                <div className="flex flex-col items-center mb-2">
+                   <span className="text-[10pt] font-black text-slate-900 leading-tight uppercase mb-0.5">{student.full_name}</span>
+                   <span className="text-[9pt] font-bold text-slate-600 leading-none mb-0.5 tracking-wider">{student.nisn}</span>
+                   <span className="text-[9pt] font-black text-slate-700 leading-none">{student.class_name}</span>
                 </div>
  
                 {/* Team Pill */}
-                <div className="bg-slate-800 text-white text-[6pt] w-full py-1.5 rounded-xl font-black tracking-[0.2em] uppercase shrink-0">
+                <div className="bg-[#333333] text-white text-[7pt] w-[85%] py-2.5 rounded-[3mm] font-black tracking-[0.2em] uppercase shrink-0 mt-auto">
                   TIM NESATMA
                 </div>
               </div>
