@@ -35,6 +35,8 @@ export default function AIScanner() {
   const [modelsLoaded, setModelsLoaded] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [studentsWithFaces, setStudentsWithFaces] = useState<any[]>([])
+  const [allStudents, setAllStudents] = useState<any[]>([])
+  const allStudentsRef = useRef<any[]>([])
   const [matcher, setMatcher] = useState<faceapi.FaceMatcher | null>(null)
   
   // Geolocation state
@@ -120,6 +122,8 @@ export default function AIScanner() {
 
         // Load Students first
         const students = await studentService.getAll()
+        setAllStudents(students)
+        allStudentsRef.current = students
         console.log(`Fetched ${students.length} students from database.`)
 
         const studentsWithDescriptors = students.filter(s => s.face_descriptor).map(s => {
@@ -242,10 +246,25 @@ export default function AIScanner() {
         config,
         async (decodedText) => {
           if (cooldown) return
-          const student = studentsWithFaces.find(s => s.nisn === decodedText)
+          const rawText = decodedText.trim()
+          console.log("QR Decoded:", rawText)
+          
+          // Match by NISN or ID (just in case)
+          const student = allStudentsRef.current.find(s => 
+            s.nisn === rawText || 
+            s.id === rawText ||
+            s.nisn.replace(/^0+/, '') === rawText.replace(/^0+/, '') // Handle leading zeros
+          )
+          
           if (student) {
             setRecognitionStatus("recognized")
-            setLastRecognizedData(student)
+            setLastRecognizedData({
+              id: student.id,
+              name: student.full_name,
+              nisn: student.nisn,
+              className: student.class_name,
+              photo: student.photo_url
+            })
             const now = Date.now()
             if (lastRecognizedIdRef.current === student.id && (now - lastRecognizedTimeRef.current) < 5000) return
             handleAutoAttendance(student.id, 0.1)
