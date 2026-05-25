@@ -125,8 +125,8 @@ export default function Students() {
 
   const downloadTemplate = () => {
     const headers = [
-      ["NISN", "Nama Lengkap", "Kelas", "Nama Orang Tua", "No. WhatsApp", "Jenis Kelamin (L/P)"],
-      ["12345678", "Contoh Siswa", "7A", "Nama Ayah/Ibu", "081234567890", "L"]
+      ["NISN", "Nama Lengkap", "Kelas", "Nama Orang Tua", "No. WhatsApp"],
+      ["12345678", "Contoh Siswa", "7A", "Nama Ayah/Ibu", "081234567890"]
     ]
     const worksheet = XLSX.utils.aoa_to_sheet(headers)
     const workbook = XLSX.utils.book_new()
@@ -152,23 +152,24 @@ export default function Students() {
 
           if (data.length === 0) {
             toast.error("File excel kosong atau format tidak sesuai")
+            setImporting(false)
             return
           }
 
           // Map data to student format
           const studentsToCreate = data.map(row => ({
-            nisn: String(row["NISN"] || ""),
-            full_name: String(row["Nama Lengkap"] || ""),
-            class_name: String(row["Kelas"] || ""),
-            parent_name: String(row["Nama Orang Tua"] || ""),
-            parent_phone: String(row["No. WhatsApp"] || ""),
-            gender: String(row["Jenis Kelamin (L/P)"] || "L") === "P" ? "P" : "L"
+            nisn: String(row["NISN"] || "").trim(),
+            full_name: String(row["Nama Lengkap"] || "").trim(),
+            class_name: String(row["Kelas"] || "").trim(),
+            parent_name: String(row["Nama Orang Tua"] || "").trim(),
+            parent_phone: String(row["No. WhatsApp"] || "").trim()
           }))
 
           // Basic validation
           const invalidRows = studentsToCreate.filter(s => !s.nisn || !s.full_name || !s.class_name)
           if (invalidRows.length > 0) {
-            toast.error(`${invalidRows.length} baris data tidak lengkap. Mohon periksa kembali.`)
+            toast.error(`${invalidRows.length} baris data tidak lengkap (NISN, Nama, atau Kelas kosong). Mohon periksa kembali.`)
+            setImporting(false)
             return
           }
 
@@ -177,11 +178,19 @@ export default function Students() {
           setIsBulkImportOpen(false)
           fetchStudents()
         } catch (err: any) {
-          toast.error("Gagal memproses file: " + err.message)
+          console.error("Gagal mengimpor:", err)
+          toast.error("Gagal memproses file: " + (err.message || "Konflik database atau format salah"))
+        } finally {
+          setImporting(false)
         }
       }
+      reader.onerror = () => {
+        toast.error("Gagal membaca file")
+        setImporting(false)
+      }
       reader.readAsArrayBuffer(file)
-    } finally {
+    } catch (err: any) {
+      toast.error("Gagal mengunggah file: " + err.message)
       setImporting(false)
     }
   }
