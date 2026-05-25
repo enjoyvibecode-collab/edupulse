@@ -53,6 +53,7 @@ export default function AIScanner() {
   const [cooldown, setCooldown] = useState(false)
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
   const [recentLogs, setRecentLogs] = useState<any[]>([])
+  const [bypassSchedule, setBypassSchedule] = useState(true)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -410,7 +411,7 @@ export default function AIScanner() {
     if (cooldown) return;
 
     const now = new Date()
-    if (!isWindowActive(scannerMode, now)) {
+    if (!bypassSchedule && !isWindowActive(scannerMode, now)) {
       console.warn(`Attendance blocked: Outside ${scannerMode} window`)
       toast.error(`Terminal Presensi ${scannerMode.replace('_', ' ')} Sedang Tutup`, {
         description: "Silahkan ganti mode manual atau tunggu jadwal berikutnya."
@@ -452,7 +453,7 @@ export default function AIScanner() {
       setCooldown(true)
       setTimeout(() => setCooldown(false), 2000)
     }
-  }, [locationStatus, cooldown, scannerMode])
+  }, [locationStatus, cooldown, scannerMode, bypassSchedule])
 
   // 3. Recognition Loop
   const runRecognition = useCallback(async () => {
@@ -605,12 +606,25 @@ export default function AIScanner() {
              <div className="flex flex-col">
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{format(currentTime, "HH:mm")}</span>
                <span className={`text-[10px] font-bold uppercase transition-colors ${
-                 isWindowActive(scannerMode, currentTime) ? 'text-emerald-500' : 'text-rose-500'
+                 isWindowActive(scannerMode, currentTime) || bypassSchedule ? 'text-emerald-500' : 'text-rose-500'
                }`}>
-                 {isWindowActive(scannerMode, currentTime) ? 'Window Open' : 'Window Closed'}
+                 {bypassSchedule ? 'Bypass Active (Always Open)' : (isWindowActive(scannerMode, currentTime) ? 'Window Open' : 'Window Closed')}
                </span>
              </div>
           </div>
+
+          <Button
+            size="sm"
+            variant={bypassSchedule ? "default" : "outline"}
+            onClick={() => setBypassSchedule(!bypassSchedule)}
+            className={`h-9 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
+              bypassSchedule 
+                ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-md' 
+                : 'text-slate-500 border-slate-200'
+            }`}
+          >
+            {bypassSchedule ? '⏱️ Disable Test Bypass' : '⚡ Enable Test Bypass (Schedules Open)'}
+          </Button>
 
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
             {Object.entries(ATTENDANCE_WINDOWS).map(([key, window]) => {
