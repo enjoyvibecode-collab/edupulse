@@ -156,44 +156,159 @@ export default function Students() {
             return
           }
 
-          // Map data to student format
-          const studentsToCreate = data.map(row => ({
-            nisn: String(row["NISN"] || "").trim(),
-            full_name: String(row["Nama Lengkap"] || "").trim(),
-            class_name: String(row["Kelas"] || "").trim(),
-            parent_name: String(row["Nama Orang Tua"] || "").trim(),
-            parent_phone: String(row["No. WhatsApp"] || "").trim()
-          }))
+          // Case-insensitive & helper search for excel keys in row
+          const findValueByPossibleKeys = (row: any, ...keys: string[]): string => {
+            const rowKeys = Object.keys(row);
+            
+            // 1. Exact matches
+            for (const k of keys) {
+              if (row[k] !== undefined && row[k] !== null) {
+                return String(row[k]).trim();
+              }
+            }
+            
+            // 2. Normalized/lower case match without space/symbols
+            for (const rk of rowKeys) {
+              const rkLower = rk.toLowerCase().trim();
+              for (const k of keys) {
+                const kLower = k.toLowerCase().trim();
+                if (rkLower === kLower || rkLower.replace(/[^a-z0-9]/g, "") === kLower.replace(/[^a-z0-9]/g, "")) {
+                  return String(row[rk]).trim();
+                }
+              }
+            }
 
-          // Basic validation
-          const invalidRows = studentsToCreate.filter(s => !s.nisn || !s.full_name || !s.class_name)
-          if (invalidRows.length > 0) {
-            toast.error(`${invalidRows.length} baris data tidak lengkap (NISN, Nama, atau Kelas kosong). Mohon periksa kembali.`)
-            setImporting(false)
-            return
+            // 3. Word substring match (e.g. "nama" inside "nama lengkap", "ortu" in "nama ortu")
+            for (const rk of rowKeys) {
+              const rkLower = rk.toLowerCase().trim();
+              for (const k of keys) {
+                const kLower = k.toLowerCase().trim();
+                if (rkLower.includes(kLower)) {
+                  return String(row[rk]).trim();
+                }
+              }
+            }
+
+            return "";
+          };
+
+          // Map data to student format
+          const rawStudents = data.map(row => {
+            const nisn = findValueByPossibleKeys(row, "NISN", "Nisn", "nisn", "No Induk", "id").trim();
+            const full_name = findValueByPossibleKeys(row, "Nama Lengkap", "nama", "Nama Siswa", "Nama", "full_name").trim();
+            const class_name = findValueByPossibleKeys(row, "Kelas", "kelas", "class", "Class", "class_name").trim();
+            const parent_name = findValueByPossibleKeys(row, "Nama Orang Tua", "Nama Ortu", "orang tua", "ortu", "wali", "Wali", "parent_name").trim();
+            const parent_phone = findValueByPossibleKeys(row, "No. WhatsApp", "No WhatsApp", "No. WA", "No WA", "WhatsApp", "whatsapp", "wa", "parent_phone").trim();
+
+            return {
+              nisn,
+              full_name,
+              class_name,
+              parent_name: parent_name || "Orang Tua/Wali",
+              parent_phone: parent_phone || "-"
+            };
+          });
+
+          // Filter out completely blank lines at bottom of excel sheet
+          const activeRows = rawStudents.filter(s => s.nisn || s.full_name || s.class_name);
+
+          // Find rows where critical keys (NISN, Nama Lengkap, or Kelas) are missing
+          const invalidRows = activeRows.filter(s => !s.nisn || !s.full_name || !s.class_name);
+          const validRows = activeRows.filter(s => s.nisn && s.full_name && s.class_name);
+
+          if (validRows.length === 0) {
+            toast.error("Tidak ada data siswa valid. Pastikan kolom wajib (NISN, Nama Lengkap, Kelas) sudah terisi.");
+            setImporting(false);
+            return;
           }
 
-          await studentService.bulkCreate(studentsToCreate)
-          toast.success(`${studentsToCreate.length} data siswa berhasil diimpor`)
-          setIsBulkImportOpen(false)
-          fetchStudents()
+          // Deduplicate NISNs within the spreadsheets to avoid duplicates in the same batch
+          const seenNisns = new Set<string>();
+          const uniqueUploaded = [];
+          let duplicateInSheetCount = 0;
+
+          for (const item of validRows) {
+            if (seenNisns.has(item.nisn)) {
+              duplicateInSheetCount++;
+              continue;
+            }
+            seenNisns.add(item.nisn);
+            uniqueUploaded.push(item);
+          }
+
+          // Check against the Supabase database to avoid unique constraint violating errors
+          const existingStudents = await studentService.getAll();
+          const existingMap = new Map<string, Student>();
+          existingStudents.forEach(s => existingMap.set(s.nisn, s));
+
+          const toInsert: any[] = [];
+          const toUpdate: any[] = [];
+
+          for (const item of uniqueUploaded) {
+            const existing = existingMap.get(item.nisn);
+            if (existing) {
+              toUpdate.push({
+                id: existing.id,
+                nisn: item.nisn,
+                full_name: item.full_name,
+                class_name: item.class_name,
+                parent_name: item.parent_name || existing.parent_name || "Orang Tua/Wali",
+                parent_phone: item.parent_phone || existing.parent_phone || "-",
+                photo_url: existing.photo_url || null,
+                face_descriptor: existing.face_descriptor || null,
+                created_at: existing.created_at
+              });
+            } else {
+              toInsert.push(item);
+            }
+          }
+
+          let insertResultCount = 0;
+          let updateResultCount = 0;
+
+          if (toInsert.length > 0) {
+            const res = await studentService.bulkCreate(toInsert);
+            if (res) insertResultCount = res.length;
+          }
+
+          if (toUpdate.length > 0) {
+            // Use our new bulkUpsert function to update profiles cleanly
+            const res = await studentService.bulkUpsert(toUpdate);
+            if (res) updateResultCount = res.length;
+          }
+
+          // Build summary message
+          let summaryMessage = `${insertResultCount} siswa baru berhasil diimpor.`;
+          if (updateResultCount > 0) {
+            summaryMessage += ` ${updateResultCount} data siswa diperbarui.`;
+          }
+          if (duplicateInSheetCount > 0) {
+            summaryMessage += ` (mengabaikan ${duplicateInSheetCount} duplikat di file)`;
+          }
+          if (invalidRows.length > 0) {
+            toast.warning(`${invalidRows.length} baris tidak lengkap dilewati (NISN/Nama/Kelas kosong).`);
+          }
+
+          toast.success(summaryMessage);
+          setIsBulkImportOpen(false);
+          fetchStudents();
         } catch (err: any) {
-          console.error("Gagal mengimpor:", err)
-          toast.error("Gagal memproses file: " + (err.message || "Konflik database atau format salah"))
+          console.error("Gagal mengimpor:", err);
+          toast.error("Gagal memproses file: " + (err.message || "Konflik database atau format salah"));
         } finally {
-          setImporting(false)
+          setImporting(false);
         }
-      }
+      };
       reader.onerror = () => {
         toast.error("Gagal membaca file")
-        setImporting(false)
-      }
-      reader.readAsArrayBuffer(file)
+        setImporting(false);
+      };
+      reader.readAsArrayBuffer(file);
     } catch (err: any) {
-      toast.error("Gagal mengunggah file: " + err.message)
-      setImporting(false)
+      toast.error("Gagal mengunggah file: " + err.message);
+      setImporting(false);
     }
-  }
+  };
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => {

@@ -155,6 +155,34 @@ export const studentService = {
     }
   },
 
+  async bulkUpsert(students: Student[]) {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('students')
+        .upsert(students)
+        .select();
+      
+      if (error) throw error;
+      clearCache();
+      return data as Student[];
+    } catch (e: any) {
+      console.warn("Using offline localDb fallback for bulkUpsert:", e.message);
+      const list = localDb.getStudents();
+      const updatedList = [...list];
+      students.forEach(s => {
+        const idx = updatedList.findIndex(item => item.id === s.id || item.nisn === s.nisn);
+        if (idx !== -1) {
+          updatedList[idx] = { ...updatedList[idx], ...s };
+        } else {
+          updatedList.unshift(s);
+        }
+      });
+      localDb.saveStudents(updatedList);
+      clearCache();
+      return students;
+    }
+  },
+
   async update(id: string, updates: Partial<Omit<Student, 'id' | 'created_at'>>) {
     try {
       const { data, error } = await (supabase as any)
