@@ -23,6 +23,16 @@ interface FaceRegistrationModalProps {
 
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/"
 
+function euclideanDistance(arr1: number[], arr2: number[]): number {
+  if (arr1.length !== arr2.length) return Infinity
+  let sum = 0
+  for (let i = 0; i < arr1.length; i++) {
+    const diff = arr1[i] - arr2[i]
+    sum += diff * diff
+  }
+  return Math.sqrt(sum)
+}
+
 export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: FaceRegistrationModalProps) {
   const [loading, setLoading] = useState(true)
   const [modelsLoaded, setModelsLoaded] = useState(false)
@@ -31,8 +41,28 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
   const [detectionResult, setDetectionResult] = useState<{ detected: boolean; message: string; descriptor?: Float32Array } | null>(null)
   const [saving, setSaving] = useState(false)
   
+  // Duplicate face checking states
+  const [activeStudents, setActiveStudents] = useState<Student[]>([])
+  const [duplicateWarning, setDuplicateWarning] = useState<{ studentName: string; class_name: string; nisn: string; distance: number } | null>(null)
+  const [bypassDuplicate, setBypassDuplicate] = useState(false)
+  
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Fetch all other students for local similarity checking
+  useEffect(() => {
+    if (isOpen && student) {
+      setDuplicateWarning(null)
+      setBypassDuplicate(false)
+      setDetectionResult(null)
+      studentService.getAll().then(list => {
+        const others = list.filter(s => s.face_descriptor && s.id !== student.id)
+        setActiveStudents(others)
+      }).catch(err => {
+        console.warn("Failed to prefetch students for duplicate check:", err)
+      })
+    }
+  }, [isOpen, student])
 
   useEffect(() => {
     async function loadModels() {
@@ -56,11 +86,22 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
           console.warn("AI Backend init warning in modal:", e);
         }
 
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ])
+        // Fast Load Check: If parameters already loaded, don't re-download!
+        const loadPromises = []
+        if (!faceapi.nets.tinyFaceDetector.params) {
+          loadPromises.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL))
+        }
+        if (!faceapi.nets.faceLandmark68Net.params) {
+          loadPromises.push(faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL))
+        }
+        if (!faceapi.nets.faceRecognitionNet.params) {
+          loadPromises.push(faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL))
+        }
+
+        if (loadPromises.length > 0) {
+          await Promise.all(loadPromises)
+        }
+
         setModelsLoaded(true)
         setLoading(false)
       } catch (error: any) {
@@ -119,6 +160,8 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
     }
 
     setDetecting(true)
+    setDuplicateWarning(null)
+    setBypassDuplicate(false)
     try {
       // Improved sensitivity for detection: 160 is faster
       const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 }) 
@@ -131,11 +174,46 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
       if (!result) {
         setDetectionResult({ detected: false, message: "Wajah tidak terdeteksi. Pastikan pencahayaan cukup." })
       } else {
-        setDetectionResult({ 
-          detected: true, 
-          message: "Wajah berhasil dideteksi!", 
-          descriptor: result.descriptor 
-        })
+        // Check similarity match with other active students
+        let foundDup = null
+        if (result.descriptor) {
+          const currentDescriptor = Array.from(result.descriptor)
+          for (const other of activeStudents) {
+            if (other.face_descriptor) {
+              const parsed = typeof other.face_descriptor === 'string'
+                ? JSON.parse(other.face_descriptor)
+                : other.face_descriptor
+              
+              if (Array.isArray(parsed)) {
+                const dist = euclideanDistance(currentDescriptor, parsed)
+                if (dist < 0.55) {
+                  foundDup = {
+                    studentName: other.full_name,
+                    class_name: other.class_name,
+                    nisn: other.nisn,
+                    distance: dist
+                  }
+                  break
+                }
+              }
+            }
+          }
+        }
+
+        if (foundDup) {
+          setDuplicateWarning(foundDup)
+          setDetectionResult({ 
+            detected: true, 
+            message: `⚠️ Wajah Sangat Mirip dengan ${foundDup.studentName} (${foundDup.class_name})`, 
+            descriptor: result.descriptor 
+          })
+        } else {
+          setDetectionResult({ 
+            detected: true, 
+            message: "Wajah berhasil dideteksi dan terverifikasi unik!", 
+            descriptor: result.descriptor 
+          })
+        }
         
         // Draw to canvas for preview
         if (canvasRef.current) {
@@ -155,6 +233,13 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
 
   const handleSave = async () => {
     if (!student || !detectionResult?.descriptor) return
+
+    if (duplicateWarning && !bypassDuplicate) {
+      toast.error("Registrasi Wajah Ditangguhkan", {
+        description: "Silakan centang persetujuan bypass jika ini benar-benar saudara kembar atau siswa yang berbeda."
+      })
+      return
+    }
 
     setSaving(true)
     try {
@@ -215,12 +300,42 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
                 )}
                 
                 {detectionResult && (
-                  <div className={`absolute bottom-4 left-4 right-4 p-3 rounded-xl backdrop-blur-md border ${detectionResult.detected ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-100' : 'bg-rose-500/20 border-rose-500/50 text-rose-100'} flex items-center gap-3 transition-all animate-in slide-in-from-bottom-2`}>
-                    {detectionResult.detected ? <UserCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+                  <div className={`absolute bottom-4 left-4 right-4 p-3 rounded-xl backdrop-blur-md border ${detectionResult.detected ? (duplicateWarning ? 'bg-amber-500/20 border-amber-500/50 text-amber-100' : 'bg-emerald-500/20 border-emerald-500/50 text-emerald-100') : 'bg-rose-500/20 border-rose-500/50 text-rose-100'} flex items-center gap-3 transition-all animate-in slide-in-from-bottom-2`}>
+                    {detectionResult.detected ? (duplicateWarning ? <ShieldAlert className="h-5 w-5 text-amber-500" /> : <UserCheck className="h-5 w-5" />) : <ShieldAlert className="h-5 w-5" />}
                     <span className="text-sm font-bold tracking-wide">{detectionResult.message}</span>
                   </div>
                 )}
               </div>
+
+              {duplicateWarning && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-black text-rose-800 uppercase tracking-wider mb-1">
+                        Peringatan Duplikasi Wajah AI!
+                      </h4>
+                      <p className="text-[11px] text-rose-700 leading-relaxed font-semibold">
+                        Wajah siswa yang di-scan memiliki kecocokan tingkat tinggi (<span className="text-rose-900 font-extrabold">{((1 - duplicateWarning.distance) * 100).toFixed(1)}%</span>) 
+                        dengan profil terdaftar: <span className="font-bold text-rose-900 underline">{duplicateWarning.studentName} (Kelas {duplicateWarning.class_name}, NISN: {duplicateWarning.nisn})</span>.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-2 pt-2 border-t border-rose-100">
+                    <input 
+                      type="checkbox" 
+                      id="bypass-dup-check" 
+                      checked={bypassDuplicate}
+                      onChange={(e) => setBypassDuplicate(e.target.checked)}
+                      className="rounded border-rose-300 text-rose-600 focus:ring-rose-500 h-4.5 w-4.5 cursor-pointer mt-0.5"
+                    />
+                    <label htmlFor="bypass-dup-check" className="text-[10px] text-rose-800 font-bold leading-tight select-none cursor-pointer">
+                      Ini benar-benar wajah siswa yang berbeda (misalnya: saudara kembar identik, atau kemiripan visual yang tidak disengaja). Saya bertanggung jawab dan ingin tetap mendaftarkannya.
+                    </label>
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-col items-center gap-4">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
@@ -239,12 +354,16 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
                   </Button>
                   
                   <Button 
-                    className="flex-1 h-12 rounded-xl font-bold bg-primary text-white shadow-lg shadow-primary/20 disabled:opacity-50"
-                    disabled={!detectionResult?.detected || saving}
+                    className={`flex-1 h-12 rounded-xl font-bold transition-all shadow-lg ${
+                      duplicateWarning && !bypassDuplicate 
+                        ? 'bg-rose-500 hover:bg-rose-600 text-white shadow-rose-500/20' 
+                        : 'bg-primary text-white shadow-primary/20 hover:shadow-none'
+                    } disabled:opacity-50`}
+                    disabled={!detectionResult?.detected || (!!duplicateWarning && !bypassDuplicate) || saving}
                     onClick={handleSave}
                   >
                     {saving ? <Loader2 className="animate-spin mr-2" /> : <UserCheck className="mr-2" />}
-                    Daftarkan Wajah
+                    {duplicateWarning ? (bypassDuplicate ? "Tetap Daftarkan Wajah" : "Terkunci: Duplikat") : "Daftarkan Wajah"}
                   </Button>
                 </div>
               </div>

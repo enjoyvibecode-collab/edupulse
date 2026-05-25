@@ -150,15 +150,23 @@ export default function AIScanner() {
         console.log(`Initialized ${studentsWithDescriptors.length} AI face profiles.`)
         setStudentsWithFaces(studentsWithDescriptors)
 
-        // Load AI Models with a pseudo-timeout mechanism
-        const modelPromise = Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ])
+        // Load AI Models with a pseudo-timeout mechanism, only if not yet loaded
+        const loadPromises = []
+        if (!faceapi.nets.tinyFaceDetector.params) {
+          loadPromises.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL))
+        }
+        if (!faceapi.nets.faceLandmark68Net.params) {
+          loadPromises.push(faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL))
+        }
+        if (!faceapi.nets.faceRecognitionNet.params) {
+          loadPromises.push(faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL))
+        }
 
-        // Add an 18-second timeout for AI models (they can be large)
-        await withTimeout(modelPromise, 18000, 'AI Models Loading')
+        if (loadPromises.length > 0) {
+          const modelPromise = Promise.all(loadPromises)
+          // Add an 18-second timeout for AI models (they can be large)
+          await withTimeout(modelPromise, 18000, 'AI Models Loading')
+        }
 
         // Create Matcher
         if (studentsWithDescriptors.length > 0) {

@@ -63,6 +63,7 @@ export default function Students() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedClass, setSelectedClass] = useState<string>("all")
+  const [faceFilter, setFaceFilter] = useState<"all" | "registered" | "unregistered">("all")
   
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isFaceModalOpen, setIsFaceModalOpen] = useState(false)
@@ -315,9 +316,17 @@ export default function Students() {
       const matchesSearch = s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            s.nisn.includes(searchQuery)
       const matchesClass = selectedClass === "all" || s.class_name === selectedClass
-      return matchesSearch && matchesClass
+      
+      let matchesFace = true
+      if (faceFilter === "registered") {
+        matchesFace = !!s.face_descriptor
+      } else if (faceFilter === "unregistered") {
+        matchesFace = !s.face_descriptor
+      }
+      
+      return matchesSearch && matchesClass && matchesFace
     })
-  }, [students, searchQuery, selectedClass])
+  }, [students, searchQuery, selectedClass, faceFilter])
 
   const classes = useMemo(() => {
     const uniqueClasses = Array.from(new Set(students.map(s => s.class_name)))
@@ -380,10 +389,10 @@ export default function Students() {
               <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-50 px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 outline-none focus-visible:ring-1 focus-visible:ring-primary/20"
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-50 px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 outline-none focus-visible:ring-1 focus-visible:ring-primary/20 animate-in fade-in"
                   >
                     <Filter className="mr-2 h-4 w-4" /> 
-                    {selectedClass === "all" ? "Semua Kelas" : selectedClass}
+                    {selectedClass === "all" ? "Semua Kelas" : `Kelas: ${selectedClass}`}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[180px]">
                     {classes.map(c => (
@@ -395,6 +404,26 @@ export default function Students() {
                         {c === "all" ? "Semua Kelas" : c}
                       </DropdownMenuItem>
                     ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-slate-50 px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-100 outline-none focus-visible:ring-1 focus-visible:ring-primary/20 animate-in fade-in"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4 text-indigo-500" />
+                    {faceFilter === "all" ? "Status Wajah: Semua" : faceFilter === "registered" ? "Wajah: Terdaftar" : "Wajah: Belum Terdaftar"}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-[200px]">
+                    <DropdownMenuItem onClick={() => setFaceFilter("all")} className="font-semibold">
+                      Semua Siswa
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFaceFilter("registered")} className="font-semibold text-emerald-600">
+                      Terdaftar Face AI Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFaceFilter("unregistered")} className="font-semibold text-rose-500">
+                      Belum Terdaftar Face AI
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -435,9 +464,13 @@ export default function Students() {
                             <div className="flex flex-col">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{student.full_name}</span>
-                                {student.face_descriptor && (
+                                {student.face_descriptor ? (
                                   <Badge className="h-4 px-1.5 bg-emerald-100 text-emerald-600 border-none font-bold text-[8px] uppercase">
                                     AI Ready
+                                  </Badge>
+                                ) : (
+                                  <Badge className="h-4 px-1.5 bg-rose-50 text-rose-500 border border-rose-100 font-bold text-[8px] uppercase">
+                                    Belum Register
                                   </Badge>
                                 )}
                               </div>
@@ -509,9 +542,13 @@ export default function Students() {
                           {student.full_name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
-                      {student.face_descriptor && (
+                      {student.face_descriptor ? (
                         <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-lg p-1 shadow-lg shadow-emerald-500/20 border-2 border-white">
                           <CheckCircle className="w-3 h-3" />
+                        </div>
+                      ) : (
+                        <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white rounded-lg p-1 shadow-lg shadow-rose-500/20 border-2 border-white">
+                          <AlertTriangle className="w-3 h-3" />
                         </div>
                       )}
                     </div>
@@ -519,9 +556,16 @@ export default function Students() {
                     <div className="flex-1 min-w-0" onClick={() => handleEdit(student)}>
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-bold text-slate-900 truncate pr-2">{student.full_name}</span>
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-none font-black text-[9px] px-2 py-0 h-4">
-                          {student.class_name}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge variant="outline" className="bg-primary/5 text-primary border-none font-black text-[9px] px-2 py-0 h-4">
+                            {student.class_name}
+                          </Badge>
+                          {student.face_descriptor ? (
+                            <Badge className="bg-emerald-100 text-emerald-600 border-none font-bold text-[8px] h-4 uppercase">Ready</Badge>
+                          ) : (
+                            <Badge className="bg-rose-100 text-rose-500 border-none font-bold text-[8px] h-4 uppercase">Belum AI</Badge>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[10px] font-mono text-slate-400 mb-1">NISN: {student.nisn}</p>
                       <div className="flex items-center gap-1.5">
