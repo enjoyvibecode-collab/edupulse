@@ -21,12 +21,11 @@ const isValidUrl = (url: string) => {
   }
 };
 
-const isConfigured = !!supabaseUrl && isValidUrl(supabaseUrl) && !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key';
+export const isSupabaseConfigured = !!supabaseUrl && isValidUrl(supabaseUrl) && !!supabaseAnonKey && supabaseAnonKey !== 'placeholder-key';
 
-if (!isConfigured && typeof window !== 'undefined') {
-  console.error('Supabase CRITICAL CONFIG ERROR: URL or Key is missing or invalid.');
-  console.log('Current URL:', supabaseUrl || 'MISSING');
-  console.log('Anon Key Present:', !!supabaseAnonKey);
+if (!isSupabaseConfigured && typeof window !== 'undefined') {
+  console.warn('Supabase CONFIG WARNING: URL or Key is missing or using placeholder.');
+  (window as any).__supabaseOffline = true;
 }
 
 export const supabase = createClient<Database>(
@@ -43,13 +42,23 @@ export const supabase = createClient<Database>(
     global: {
       headers: { 'x-application-name': 'edupulse' },
       fetch: (input: RequestInfo | URL, init?: RequestInit) => {
-        return fetch(input, init).catch(err => {
-          if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-            console.error('CORTEX NETWORK ERROR: Likely CORS or Connectivity issue.', err);
-            throw new Error('Gagal terhubung ke server (Failed to fetch). Periksa koneksi internet Anda atau pastikan URL Supabase dapat diakses.');
-          }
-          throw err;
-        });
+        return fetch(input, init)
+          .then(res => {
+            if (typeof window !== 'undefined') {
+              (window as any).__supabaseOffline = false;
+            }
+            return res;
+          })
+          .catch(err => {
+            if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+              console.error('CORTEX NETWORK ERROR: Likely CORS or Connectivity issue.', err);
+              if (typeof window !== 'undefined') {
+                (window as any).__supabaseOffline = true;
+              }
+              throw new Error('Gagal terhubung ke server (Failed to fetch). Periksa koneksi internet Anda atau pastikan URL Supabase dapat diakses.');
+            }
+            throw err;
+          });
       }
     }
   }

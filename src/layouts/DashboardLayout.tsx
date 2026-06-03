@@ -14,11 +14,14 @@ import {
   FileText, 
   MoreHorizontal,
   QrCode,
-  Loader2
+  Loader2,
+  Sparkles,
+  AlertTriangle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
 import { Link, useLocation, useNavigate } from "react-router-dom"
+import { isSupabaseConfigured } from "@/lib/supabase"
 import {
   Sheet,
   SheetContent,
@@ -33,6 +36,20 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = React.useState(false)
   const [isMoreOpen, setIsMoreOpen] = React.useState(false)
+  const [isOffline, setIsOffline] = React.useState(false)
+
+  React.useEffect(() => {
+    // Check initially
+    setIsOffline(!isSupabaseConfigured || (typeof window !== "undefined" && !!(window as any).__supabaseOffline))
+
+    // Set up a quick check interval to make it responsive
+    const interval = setInterval(() => {
+      const offlineState = !isSupabaseConfigured || (typeof window !== "undefined" && !!(window as any).__supabaseOffline)
+      setIsOffline(offlineState)
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const handleSignOut = async () => {
     setLoggingOut(true)
@@ -112,6 +129,40 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex-1 p-4 md:p-8 overflow-auto">
+            {isOffline && (
+              <div className="mb-6 p-4 rounded-3xl bg-amber-50 border border-amber-200/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-100/80 rounded-2xl text-amber-700 shrink-0 mt-0.5 md:mt-0">
+                    <Sparkles className="w-5 h-5 animate-pulse text-amber-700" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-800 mb-1">
+                      Mode Offline Lokal Aktif (Fallback Otomatis)
+                    </h4>
+                    <p className="text-xs text-amber-700 leading-relaxed font-semibold">
+                      Koneksi ke Supabase Cloud belum terhubung atau diblokir. 
+                      Aplikasi telah beralih ke local storage browser Anda secara otomatis—semua fitur pendaftaran wajah, impor siswa masal, absensi, dan scanner tetap dapat dicoba dengan aman tanpa internet!
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 self-stretch md:self-auto shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        (window as any).__supabaseOffline = false;
+                        setIsOffline(false);
+                      }
+                    }}
+                    className="flex-1 md:flex-none h-9 text-amber-800 hover:bg-amber-100 text-[10px] uppercase font-black tracking-wider rounded-xl transition-all"
+                  >
+                    Sembunyikan
+                  </Button>
+                </div>
+              </div>
+            )}
             {children}
           </div>
 
