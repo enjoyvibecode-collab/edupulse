@@ -42,6 +42,30 @@ export const supabase = createClient<Database>(
     global: {
       headers: { 'x-application-name': 'edupulse' },
       fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        // Prevent network fetch entirely if Supabase is not configured
+        const isPlaceholder = typeof input === 'string' 
+          ? input.includes('placeholder.supabase.co') 
+          : (input instanceof URL ? input.hostname.includes('placeholder.supabase.co') : false);
+
+        if (!isSupabaseConfigured || isPlaceholder) {
+          if (typeof window !== 'undefined') {
+            (window as any).__supabaseOffline = true;
+          }
+          return Promise.resolve(new Response(
+            JSON.stringify({ 
+              error: { 
+                message: "Supabase is not configured. Running in offline fallback mode.", 
+                code: "SUPABASE_NOT_CONFIGURED" 
+              } 
+            }),
+            {
+              status: 400,
+              statusText: "Bad Request",
+              headers: { "Content-Type": "application/json" }
+            }
+          ));
+        }
+
         return fetch(input, init)
           .then(res => {
             if (typeof window !== 'undefined') {
@@ -51,11 +75,12 @@ export const supabase = createClient<Database>(
           })
           .catch(err => {
             if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-              console.error('CORTEX NETWORK ERROR: Likely CORS or Connectivity issue.', err);
+              console.warn('SUPABASE OFFLINE NOTICE: Failed to connect to server.', err.message);
               if (typeof window !== 'undefined') {
                 (window as any).__supabaseOffline = true;
               }
-              throw new Error('Gagal terhubung ke server (Failed to fetch). Periksa koneksi internet Anda atau pastikan URL Supabase dapat diakses.');
+              // Throw a friendly error that doesn't crash the interface but allows services to use catch fallback
+              throw new Error('Gagal terhubung ke server. Menggunakan mode penyimpanan offline lokal.');
             }
             throw err;
           });
