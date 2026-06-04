@@ -45,6 +45,7 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
   const [activeStudents, setActiveStudents] = useState<Student[]>([])
   const [duplicateWarning, setDuplicateWarning] = useState<{ studentName: string; class_name: string; nisn: string; distance: number } | null>(null)
   const [bypassDuplicate, setBypassDuplicate] = useState(false)
+  const [enableDuplicateCheck, setEnableDuplicateCheck] = useState(true)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -174,9 +175,9 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
       if (!result) {
         setDetectionResult({ detected: false, message: "Wajah tidak terdeteksi. Pastikan pencahayaan cukup." })
       } else {
-        // Check similarity match with other active students
+        // Check similarity match with other active students (if enabled)
         let foundDup = null
-        if (result.descriptor) {
+        if (enableDuplicateCheck && result.descriptor) {
           const currentDescriptor = Array.from(result.descriptor)
           for (const other of activeStudents) {
             if (other.face_descriptor) {
@@ -186,7 +187,8 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
               
               if (Array.isArray(parsed)) {
                 const dist = euclideanDistance(currentDescriptor, parsed)
-                if (dist < 0.55) {
+                // Loosened duplicate check threshold from 0.55 to 0.40 for registration to avoid false alerts
+                if (dist < 0.40) {
                   foundDup = {
                     studentName: other.full_name,
                     class_name: other.class_name,
@@ -336,6 +338,25 @@ export function FaceRegistrationModal({ student, isOpen, onClose, onSuccess }: F
                   </div>
                 </div>
               )}
+
+              <div className="bg-slate-100 rounded-2xl p-4 flex items-center justify-between border border-slate-200/50">
+                <div className="flex flex-col shrink-0 max-w-[80%]">
+                  <span className="text-xs font-black text-slate-700 uppercase tracking-wide">Proteksi Duplikasi Wajah</span>
+                  <span className="text-[10px] text-slate-500 font-semibold leading-normal">Bandingkan dengan wajah siswa terdaftar untuk menghindari pendaftaran ganda (Nonaktifkan agar lebih cepat).</span>
+                </div>
+                <input 
+                  type="checkbox" 
+                  id="enable-dup-check" 
+                  checked={enableDuplicateCheck}
+                  onChange={(e) => {
+                    setEnableDuplicateCheck(e.target.checked)
+                    if (!e.target.checked) {
+                      setDuplicateWarning(null)
+                    }
+                  }}
+                  className="rounded border-slate-300 text-primary focus:ring-primary h-5 w-5 cursor-pointer accent-primary shrink-0"
+                />
+              </div>
 
               <div className="flex flex-col items-center gap-4">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest text-center">
