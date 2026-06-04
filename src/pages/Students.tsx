@@ -34,7 +34,8 @@ import {
   XCircle,
   FileSpreadsheet,
   Sparkles,
-  QrCode
+  QrCode,
+  ArrowUpCircle
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { 
@@ -68,6 +69,10 @@ export default function Students() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isFaceModalOpen, setIsFaceModalOpen] = useState(false)
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
+  const [isBulkPromoteOpen, setIsBulkPromoteOpen] = useState(false)
+  const [promotingClass, setPromotingClass] = useState(false)
+  const [sourceClass, setSourceClass] = useState("")
+  const [targetClassInput, setTargetClassInput] = useState("")
   const [importing, setImporting] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | undefined>(undefined)
   const [selectedForFace, setSelectedForFace] = useState<Student | null>(null)
@@ -311,6 +316,49 @@ export default function Students() {
     }
   };
 
+  const handleBulkPromote = async () => {
+    if (!sourceClass.trim() || !targetClassInput.trim()) {
+      toast.error("Format tidak lengkap", {
+        description: "Harap pilih kelas asal dan isi nama kelas baru."
+      });
+      return;
+    }
+
+    const normSource = sourceClass.trim();
+    const normTarget = targetClassInput.trim();
+
+    if (normSource === normTarget) {
+      toast.error("Kelas Asal dan Kelas Tujuan Sama", {
+        description: "Nama kelas asal dan kelas tujuan tidak boleh sama."
+      });
+      return;
+    }
+
+    const members = students.filter(s => s.class_name === normSource);
+    if (members.length === 0) {
+      toast.error("Kelas Kosong", {
+        description: `Tidak ada siswa yang terdata di Kelas "${normSource}".`
+      });
+      return;
+    }
+
+    setPromotingClass(true);
+    try {
+      await studentService.bulkPromoteClasses(normSource, normTarget);
+      toast.success("Kenaikan Kelas Berhasil!", {
+        description: `Sebanyak ${members.length} siswa dari Kelas ${normSource} berhasil dipindahkan ke Kelas ${normTarget}.`
+      });
+      setIsBulkPromoteOpen(false);
+      setSourceClass("");
+      setTargetClassInput("");
+      fetchStudents();
+    } catch (error: any) {
+      toast.error("Gagal memproses kenaikan kelas: " + error.message);
+    } finally {
+      setPromotingClass(false);
+    }
+  };
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const matchesSearch = s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -356,6 +404,13 @@ export default function Students() {
               className="w-full md:w-auto border-primary/20 text-primary hover:bg-primary/5 transition-all h-11 font-bold rounded-xl"
             >
               <Upload className="mr-2 h-4 w-4" /> Import Excel
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setIsBulkPromoteOpen(true)}
+              className="w-full md:w-auto bg-amber-50 border-amber-100 text-amber-700 hover:bg-amber-100 transition-all h-11 font-bold rounded-xl"
+            >
+              <ArrowUpCircle className="mr-2 h-4 w-4" /> Naik Kelas Massal
             </Button>
           <Button 
             onClick={handleAdd}
@@ -729,6 +784,89 @@ export default function Students() {
                 className="w-full font-bold text-slate-500 hover:text-slate-700"
               >
                 Batalkan
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkPromoteOpen} onOpenChange={setIsBulkPromoteOpen}>
+        <DialogContent className="sm:max-w-[480px] border-none shadow-2xl p-0 overflow-hidden rounded-3xl animate-in fade-in zoom-in-95">
+          <div className="bg-amber-500 p-6 text-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl animate-pulse" />
+            <DialogHeader className="relative z-10">
+              <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                <ArrowUpCircle className="w-6 h-6 animate-bounce" /> Kenaikan Kelas Massal
+              </DialogTitle>
+              <DialogDescription className="text-amber-50 font-semibold opacity-90">
+                Pindahkan seluruh siswa dari satu kelas ke kelas baru sekaligus untuk semester/tahun baru.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="p-8 bg-white space-y-6">
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              Fitur cerdas ini membantu Anda memperbarui data kelas secara massal tanpa perlu menghapus siswa atau mendaftarkan ulang wajah AI mereka.
+            </p>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Pilih Kelas Saat Ini (Asal)</label>
+                <select 
+                  className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
+                  value={sourceClass}
+                  onChange={(e) => setSourceClass(e.target.value)}
+                >
+                  <option value="" disabled className="text-slate-400">--- Pilih Kelas ---</option>
+                  {classes.filter(c => c !== "all").map(c => (
+                    <option key={c} value={c} className="font-bold">{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase text-slate-500 tracking-wider">Ketik Nama Kelas Baru (Tujuan)</label>
+                <Input 
+                  placeholder="Contoh: 8A atau Alumni / Lulus" 
+                  value={targetClassInput}
+                  onChange={(e) => setTargetClassInput(e.target.value)}
+                  className="h-11 rounded-xl font-bold bg-slate-50 focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary"
+                />
+              </div>
+
+              {sourceClass && (
+                <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                  <Sparkles className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-[11px] font-bold text-amber-900 leading-normal">
+                    Terdeteksi <span className="font-extrabold text-amber-700 underline">{students.filter(s => s.class_name === sourceClass).length} siswa</span> aktif di kelas <span className="underline">{sourceClass}</span>. 
+                    Semua profil, wali murid, dan data wajah AI mereka akan otomatis dialihkan ke kelas <span className="underline text-emerald-600 font-extrabold">{targetClassInput || "..."}</span> dengan sangat aman!
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <Button 
+                onClick={() => setIsBulkPromoteOpen(false)}
+                variant="outline" 
+                className="flex-1 border-slate-200 text-slate-500 hover:bg-slate-50 font-bold rounded-xl h-12"
+                disabled={promotingClass}
+              >
+                Batalkan
+              </Button>
+              <Button 
+                onClick={handleBulkPromote}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-lg shadow-amber-500/20 hover:shadow-none transition-all rounded-xl h-12"
+                disabled={promotingClass || !sourceClass || !targetClassInput.trim()}
+              >
+                {promotingClass ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Memproses...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5 mr-2" /> Proses Kenaikan
+                  </>
+                )}
               </Button>
             </div>
           </div>

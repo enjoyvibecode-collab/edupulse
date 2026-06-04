@@ -249,6 +249,32 @@ export const studentService = {
     }
   },
 
+  async bulkPromoteClasses(sourceClass: string, targetClass: string) {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('students')
+        .update({ class_name: targetClass })
+        .eq('class_name', sourceClass)
+        .select();
+      
+      if (error) throw error;
+      clearCache();
+      return data as Student[];
+    } catch (e: any) {
+      console.warn("Using offline localDb fallback for bulkPromoteClasses:", e.message);
+      const list = localDb.getStudents();
+      const updated = list.map(s => {
+        if (s.class_name === sourceClass) {
+          return { ...s, class_name: targetClass };
+        }
+        return s;
+      });
+      localDb.saveStudents(updated);
+      clearCache();
+      return updated.filter(s => s.class_name === targetClass);
+    }
+  },
+
   async getAttendanceLogs() {
     const cached = getFromCache('attendance_logs_all');
     if (cached) return cached;
