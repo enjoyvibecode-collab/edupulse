@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <drop-shadow dx="0" dy="8" stdDeviation="12" flood-color="#10b981" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  
+  <!-- Smooth Rounded Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  
+  <!-- Outer Glow Ring -->
+  <rect x="20" y="20" width="472" height="472" rx="92" fill="none" stroke="#10b981" stroke-width="4" stroke-opacity="0.15" />
+
+  <g transform="translate(0, -10)" filter="url(#glow)">
+    <!-- Mortarboard Hat (Education) -->
+    <path d="M256 138 L400 197 L256 256 L112 197 Z" fill="url(#pulseGrad)" />
+    <path d="M181 225 L181 304 C181 336 331 336 331 304 L331 225" fill="none" stroke="#10b981" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M362 208 L362 288" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" />
+    <circle cx="362" cy="288" r="12" fill="#34d399" />
+    
+    <!-- Heart Rate Pulse (Pulse/Live Tracking) -->
+    <path d="M122 368 L192 368 L213 304 L234 410 L256 336 L272 378 L293 352 L314 368 L390 368" fill="none" stroke="#34d399" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

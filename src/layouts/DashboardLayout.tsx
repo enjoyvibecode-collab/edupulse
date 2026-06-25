@@ -16,7 +16,8 @@ import {
   QrCode,
   Loader2,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Smartphone
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/AuthContext"
@@ -37,6 +38,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [loggingOut, setLoggingOut] = React.useState(false)
   const [isMoreOpen, setIsMoreOpen] = React.useState(false)
   const [isOffline, setIsOffline] = React.useState(false)
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null)
+  const [showInstallBanner, setShowInstallBanner] = React.useState(false)
 
   React.useEffect(() => {
     // Check initially
@@ -50,6 +53,34 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
     return () => clearInterval(interval)
   }, [])
+
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstallBanner(true)
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+
+    // Check if running in standalone mode (already installed)
+    if (window.matchMedia("(display-mode: standalone)").matches || (window.navigator as any).standalone) {
+      setShowInstallBanner(false)
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
+    }
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    const { outcome } = await deferredPrompt.userChoice
+    console.log(`PWA install choice: ${outcome}`)
+    setDeferredPrompt(null)
+    setShowInstallBanner(false)
+  }
 
   const handleSignOut = async () => {
     setLoggingOut(true)
@@ -159,6 +190,42 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     className="flex-1 md:flex-none h-9 text-amber-800 hover:bg-amber-100 text-[10px] uppercase font-black tracking-wider rounded-xl transition-all"
                   >
                     Sembunyikan
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {showInstallBanner && (
+              <div className="mb-6 p-4 rounded-3xl bg-emerald-50 border border-emerald-200/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-emerald-100/80 rounded-2xl text-emerald-700 shrink-0 mt-0.5 md:mt-0">
+                    <Smartphone className="w-5 h-5 text-emerald-600 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-800 mb-1">
+                      Instal Aplikasi EduPulse di HP Anda
+                    </h4>
+                    <p className="text-xs text-emerald-700 leading-relaxed font-semibold">
+                      Dapatkan akses instan dari layar utama, performa super cepat, scanning wajah AI yang stabil, serta fungsionalitas offline yang andal!
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 self-stretch md:self-auto shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowInstallBanner(false)}
+                    className="flex-1 md:flex-none h-9 text-emerald-800 hover:bg-emerald-100 text-[10px] uppercase font-black tracking-wider rounded-xl transition-all"
+                  >
+                    Nanti Saja
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleInstallApp}
+                    className="flex-1 md:flex-none h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] uppercase font-black tracking-wider rounded-xl transition-all shadow-md shadow-emerald-600/20"
+                  >
+                    Instal Sekarang
                   </Button>
                 </div>
               </div>
