@@ -53,10 +53,9 @@ export const supabase = createClient<Database>(
           }
           return Promise.resolve(new Response(
             JSON.stringify({ 
-              error: { 
-                message: "Supabase is not configured. Running in offline fallback mode.", 
-                code: "SUPABASE_NOT_CONFIGURED" 
-              } 
+              message: "Supabase is not configured. Running in offline fallback mode.", 
+              error_description: "Supabase is not configured. Running in offline fallback mode.", 
+              code: "SUPABASE_NOT_CONFIGURED" 
             }),
             {
               status: 400,
@@ -79,8 +78,19 @@ export const supabase = createClient<Database>(
               if (typeof window !== 'undefined') {
                 (window as any).__supabaseOffline = true;
               }
-              // Throw a friendly error that doesn't crash the interface but allows services to use catch fallback
-              throw new Error('Gagal terhubung ke server. Menggunakan mode penyimpanan offline lokal.');
+              // Return a structured error response that Supabase client handles gracefully
+              return new Response(
+                JSON.stringify({ 
+                  message: 'Gagal terhubung ke server. Menggunakan mode penyimpanan offline lokal.', 
+                  error_description: 'Gagal terhubung ke server. Menggunakan mode penyimpanan offline lokal.', 
+                  code: 'SUPABASE_OFFLINE' 
+                }),
+                {
+                  status: 503,
+                  statusText: 'Service Unavailable',
+                  headers: { 'Content-Type': 'application/json' }
+                }
+              );
             }
             throw err;
           });

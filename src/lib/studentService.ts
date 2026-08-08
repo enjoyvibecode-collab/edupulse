@@ -3,6 +3,7 @@ import { Student, AttendanceLog } from "@/types";
 import { startOfDay, endOfDay, subDays, format, eachDayOfInterval } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { isWindowActive } from "./attendanceConfig";
+import { attendanceSyncQueue } from "./attendanceSyncQueue";
 
 // Simple cache to prevent redundant fetches during navigation
 const cache: Record<string, { data: any, timestamp: number }> = {};
@@ -393,6 +394,16 @@ export const studentService = {
       };
       logs.unshift(newLog);
       localDb.saveLogs(logs);
+
+      // Find student info for queue metadata
+      const student = localDb.getStudents().find(s => s.id === log.student_id);
+      
+      // Add to offline sync queue
+      attendanceSyncQueue.addToQueue(newLog, {
+        studentName: student?.full_name,
+        studentNisn: student?.nisn
+      });
+
       clearCache();
       return newLog;
     }

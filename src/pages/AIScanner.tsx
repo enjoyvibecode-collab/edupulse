@@ -455,7 +455,7 @@ export default function AIScanner() {
     } catch (error: any) {
       console.error("Auto attendance error:", error)
       playErrorSound()
-      toast.error(error.message)
+      toast.error(error?.message || (typeof error === 'string' ? error : 'Gagal mencatat presensi'))
       
       // Set short cooldown on error to prevent spamming failed attempts
       setCooldown(true)

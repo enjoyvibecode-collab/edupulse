@@ -16,6 +16,7 @@ import {
   Table as TableIcon
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { studentService, localDb } from "@/lib/studentService"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns"
 import { id as localeId } from "date-fns/locale"
 import { toast } from "sonner"
@@ -69,21 +70,17 @@ export default function AttendanceReport() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [studentsRes, logsRes] = await Promise.all([
-        supabase.from('students').select('*').order('full_name'),
-        supabase.from('attendance_logs')
-          .select('*, students(full_name, nisn, class_name)')
-          .eq('is_deleted', false)
-          .order('created_at', { ascending: true })
+      const [studentsData, logsData] = await Promise.all([
+        studentService.getAll(),
+        studentService.getAttendanceLogs()
       ])
 
-      if (studentsRes.error) throw studentsRes.error
-      if (logsRes.error) throw logsRes.error
-
-      setStudents(studentsRes.data || [])
-      setLogs(logsRes.data || [])
+      setStudents(studentsData || [])
+      setLogs(logsData || [])
     } catch (error: any) {
-      toast.error("Gagal mengambil data: " + error.message)
+      console.warn("AttendanceReport offline fallback:", error);
+      setStudents(localDb.getStudents() || [])
+      setLogs(localDb.getLogs() || [])
     } finally {
       setLoading(false)
     }

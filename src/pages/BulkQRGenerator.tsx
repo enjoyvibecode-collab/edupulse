@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from "react"
 import QRCode from "qrcode"
 import * as XLSX from 'xlsx'
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -264,11 +265,12 @@ export default function BulkQRGenerator() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-4 md:px-0 print:hidden">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2 mb-1">
-            <Button variant="ghost" size="sm" asChild className="-ml-2 h-8">
-              <Link to="/students">
-                <ChevronLeft className="h-4 w-4 mr-1" /> Kembali ke Siswa
-              </Link>
-            </Button>
+            <Link 
+              to="/students" 
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 h-8")}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Kembali ke Siswa
+            </Link>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Bulk Data Export & Print</h1>
           <p className="text-muted-foreground font-medium">Layanan ekspor data massal dan cetak kartu identitas otomatis.</p>

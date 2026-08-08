@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { 
   Search, 
@@ -83,7 +84,7 @@ export default function Students() {
       const data = await studentService.getAll()
       setStudents(data)
     } catch (error: any) {
-      toast.error("Gagal mengambil data siswa: " + error.message)
+      console.warn("Gagal mengambil data siswa:", error)
     } finally {
       setLoading(false)
     }
@@ -389,15 +390,12 @@ export default function Students() {
           <p className="text-muted-foreground">Kelola data induk siswa, wali murid, dan dokumentasi foto.</p>
         </div>
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-            <Button 
-              variant="outline"
-              asChild
-              className="w-full md:w-auto bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all h-11 font-bold rounded-xl"
+            <Link 
+              to="/students/bulk-qr"
+              className={cn(buttonVariants({ variant: "outline" }), "w-full md:w-auto bg-indigo-50 border-indigo-100 text-indigo-600 hover:bg-indigo-100 transition-all h-11 font-bold rounded-xl flex items-center justify-center")}
             >
-              <Link to="/students/bulk-qr">
-                <QrCode className="mr-2 h-4 w-4" /> Bulk QR Generate
-              </Link>
-            </Button>
+              <QrCode className="mr-2 h-4 w-4" /> Bulk QR Generate
+            </Link>
             <Button 
               variant="outline"
               onClick={() => setIsBulkImportOpen(true)}

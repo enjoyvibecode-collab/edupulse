@@ -30,7 +30,7 @@ export default function Dashboard() {
       setStatsData(stats)
       setWeeklyData(weekly)
     } catch (error: any) {
-      toast.error("Gagal memuat statistik: " + error.message)
+      console.warn("Gagal memuat statistik:", error.message)
     } finally {
       if (showLoading) setLoading(false)
     }

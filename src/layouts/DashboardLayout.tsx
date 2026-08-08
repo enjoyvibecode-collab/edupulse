@@ -30,6 +30,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { OfflineSyncBanner } from "@/components/common/OfflineSyncBanner"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth()
@@ -160,6 +161,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex-1 p-4 md:p-8 overflow-auto">
+            <OfflineSyncBanner />
+
             {isOffline && (
               <div className="mb-6 p-4 rounded-3xl bg-amber-50 border border-amber-200/60 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-start gap-3">

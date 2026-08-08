@@ -121,7 +121,7 @@ export default function Attendance() {
       document.body.removeChild(link)
       toast.success("Laporan berhasil diekspor!")
     } catch (error: any) {
-      toast.error("Gagal mengekspor laporan: " + error.message)
+      toast.error("Gagal mengekspor laporan: " + (error?.message || "Terjadi kesalahan"))
     }
   }, [logs])
 
@@ -135,7 +135,7 @@ export default function Attendance() {
       setStudents(studentsData || [])
       setLogs(logsData || [])
     } catch (error: any) {
-      toast.error("Gagal mengambil data: " + error.message)
+      console.warn("Gagal mengambil data attendance:", error)
     } finally {
       if (showLoading) setLoading(false)
     }
@@ -251,7 +251,7 @@ export default function Attendance() {
       toast.success(`Siswa berhasil presensi ${statusLabel}`)
       await fetchData(false) // Refresh silent
     } catch (error: any) {
-      toast.error("Gagal memproses absensi: " + error.message)
+      toast.error("Gagal memproses absensi: " + (error?.message || "Terjadi kesalahan"))
     } finally {
       setProcessingId(null)
     }
@@ -268,7 +268,7 @@ export default function Attendance() {
       toast.success("Data absensi berhasil dibatalkan")
       await fetchData(false)
     } catch (error: any) {
-      toast.error("Gagal membatalkan: " + error.message)
+      toast.error("Gagal membatalkan: " + (error?.message || "Terjadi kesalahan"))
     } finally {
       setProcessingId(null)
     }
@@ -304,7 +304,7 @@ export default function Attendance() {
       setIsEditDialogOpen(false)
       await fetchData(false)
     } catch (error: any) {
-      toast.error("Gagal memperbarui: " + error.message)
+      toast.error("Gagal memperbarui: " + (error?.message || "Terjadi kesalahan"))
     } finally {
       setProcessingId(null)
     }
@@ -326,7 +326,7 @@ export default function Attendance() {
       if (error) throw error
       setAuditLogs(data || [])
     } catch (error: any) {
-      toast.error("Gagal mengambil riwayat audit: " + error.message)
+      toast.error("Gagal mengambil riwayat audit: " + (error?.message || "Terjadi kesalahan"))
     } finally {
       setLoadingAudit(false)
     }
@@ -513,10 +513,8 @@ export default function Attendance() {
                                 
                                 {isAdmin && (
                                   <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <button type="button" className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg hover:bg-slate-100 outline-none">
-                                        <MoreVertical size={14} className="text-slate-400" />
-                                      </button>
+                                    <DropdownMenuTrigger render={<button type="button" className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg hover:bg-slate-100 outline-none" />}>
+                                      <MoreVertical size={14} className="text-slate-400" />
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl border-slate-100">
                                       <DropdownMenuItem 
@@ -688,10 +686,8 @@ export default function Attendance() {
 
                       {isAdmin && record.log_id && (
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button type="button" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 shrink-0 flex items-center justify-center outline-none">
-                              <MoreVertical size={18} className="text-slate-400" />
-                            </button>
+                          <DropdownMenuTrigger render={<button type="button" className="h-10 w-10 p-0 rounded-xl hover:bg-slate-100 shrink-0 flex items-center justify-center outline-none" />}>
+                            <MoreVertical size={18} className="text-slate-400" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52 rounded-xl p-1 shadow-xl border-slate-100">
                             <DropdownMenuItem 
